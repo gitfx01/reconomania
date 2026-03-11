@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<!-- This declares the document as HTML5, the current standard for web pages -->
+
+<html lang="en">
+<!-- The root element of the page. lang="en" tells browsers and search engines the content is in English -->
+
+<head>
+    <!-- The <head> section contains metadata — information ABOUT the page, not visible content -->
+
+    <meta charset="UTF-8">
+    <!-- Declares the character encoding. UTF-8 supports all Latin characters, including Romanian diacritics -->
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Tells mobile browsers to use the device's actual width instead of pretending to be a desktop screen -->
+
+    <title>RECONOMANIA</title>
+    <!-- The text that appears in the browser tab -->
+
+    <style>
+        /*
+            All visual styling lives here inside <style> tags.
+            CSS (Cascading Style Sheets) controls how things look:
+            colours, fonts, spacing, layout.
+
+            The RECONOMANIA palette from the Concept Paper:
+            - Dark charcoal background: #1a1a2e
+            - Navy blue: #16213e
+            - Steel blue: #0f3460
+            - Silver/light grey: #c0c0c0
+            - Accent blue: #53a8b6
+        */
+
+        /* The * selector means "apply to everything" — this resets default spacing */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            /* The main container for all visible content */
+            background-color: #1a1a2e;       /* Dark charcoal — the base of the RECONOMANIA look */
+            color: #c0c0c0;                  /* Silver text for readability against dark backgrounds */
+            font-family: 'Segoe UI', Arial, sans-serif;  /* Clean, professional font stack */
+            min-height: 100vh;               /* vh = viewport height. 100vh means "fill the entire screen" */
+            display: flex;                   /* Flexbox: a layout system that makes centering easy */
+            flex-direction: column;          /* Stack children vertically */
+            align-items: center;             /* Centre horizontally */
+            justify-content: center;         /* Centre vertically */
+        }
+
+        .container {
+            /* The box that holds all the content, centred on the page */
+            text-align: center;
+            padding: 2rem;                   /* rem = relative unit based on font size. 2rem ≈ 32px of breathing room */
+            max-width: 700px;                /* Prevents text from stretching too wide on large screens */
+        }
+
+        .logo-text {
+            /* The main RECONOMANIA title */
+            font-size: 3rem;                 /* Large and prominent */
+            font-weight: 700;               /* Bold */
+            letter-spacing: 0.3rem;          /* Spread the letters for a commanding look */
+            color: #e0e0e0;                  /* Near-white for maximum contrast */
+            margin-bottom: 0.5rem;
+        }
+
+        .message {
+            /* The "coming soon" text */
+            font-size: 1rem;
+            line-height: 1.8;                /* Line height controls spacing between lines of text */
+            color: #808080;                  /* Dimmer grey — secondary information, not the star */
+        }
+
+        .copyright {
+            /* The copyright notice at the bottom */
+            margin-top: 3rem;
+            font-size: 0.75rem;
+            color: #4a4a4a;                  /* Very dim — present but unobtrusive */
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Everything visible on the page lives inside <body> -->
+
+    <div class="container">
+        <!-- div = division. A generic container for grouping content. "container" is our name for it -->
+
+        <h1 class="logo-text">
+            <!-- h1 = the most important heading on the page. Only one per page by convention -->
+            RECONOMANIA
+        </h1>
+
+        <p class="message">
+            Currently under development.
+        </p>
+
+        <p class="copyright">
+            &#169; RECONOMANIA
+            <!--
+                &#169; is the HTML code for the © symbol.
+                You could also type © directly, but the code is more universally reliable.
+            -->
+        </p>
+    </div>
+
+</body>
+</html>
