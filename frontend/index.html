@@ -1,0 +1,1023 @@
+<!--
+============================================================================
+RECONOMANIA — Frontend (Phase One)
+============================================================================
+
+FILE PURPOSE:
+    This is the main (and currently only) page of the RECONOMANIA platform.
+    It displays an interactive D3.js chart showing the EUR/RON exchange rate
+    history from 2005 to today.
+
+    When this page loads in the browser, it:
+    1. Shows the RECONOMANIA branding and page structure immediately.
+    2. Sends a request to the backend API (/api/series/bnr_eurron_daily)
+       to fetch the exchange rate data.
+    3. Uses D3.js to draw an interactive line chart with the data.
+    4. Provides hover tooltips showing exact values and date range buttons.
+
+HOW IT WORKS:
+    This file is served by the FastAPI backend. When you visit
+    http://localhost:8000/, the backend sends this file to your browser.
+    The browser then renders the HTML, applies the CSS styling, and
+    executes the JavaScript, which calls the API and draws the chart.
+
+    The flow is:
+    Browser → requests page → Backend sends this HTML
+    Browser → executes JavaScript → JavaScript calls /api/series/...
+    Backend → queries database → returns JSON data
+    JavaScript → receives JSON → D3.js draws chart
+
+TECHNICAL NOTES:
+    - D3.js is loaded from a CDN (Content Delivery Network) — a public
+      server that hosts popular JavaScript libraries. This means no need
+      to download or install D3 locally.
+    - All CSS is inline (in <style> tags) and all JavaScript is inline
+      (in <script> tags). In a larger project, these would be separate
+      files. For Phase One's single page, inline is simpler.
+    - The chart is responsive: it adapts to the browser window width.
+
+DATE:        March 2026
+PHASE:       Phase One
+============================================================================
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+
+    <!--
+    The viewport meta tag tells mobile browsers how to scale the page.
+    width=device-width: use the device's actual width, don't pretend to be
+    a desktop monitor. initial-scale=1.0: don't zoom in or out by default.
+    This is essential for responsive design (Concept Paper Section 8.4).
+    -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>RECONOMANIA — EUR/RON Exchange Rate</title>
+
+    <!--
+    Load D3.js from a CDN. Version 7 is the current major version.
+    D3 (Data-Driven Documents) is a JavaScript library for creating
+    data visualisations. Unlike Chart.js which gives you pre-built chart
+    types, D3 gives you building blocks: scales, axes, shapes, transitions.
+    You assemble them into exactly the chart you want. More work, more control.
+    -->
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+
+    <!--
+    Google Fonts: we load two fonts.
+    - "DM Sans" for body text: clean, modern, highly readable.
+    - "Instrument Serif" for the logo/brand: sharp, editorial, distinctive.
+    Both are free and widely supported.
+    -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+
+    <style>
+        /*
+        ================================================================
+        CSS (Cascading Style Sheets) — Controls how everything looks.
+        ================================================================
+
+        CSS works by selecting HTML elements and applying visual rules.
+        The syntax is:  selector { property: value; }
+
+        For example:  body { background: #1a1a2e; }
+        means "find the <body> element and set its background to dark blue."
+
+        CSS "cascades": rules defined later override earlier ones,
+        and more specific selectors override less specific ones.
+        ================================================================
+        */
+
+        /* --- CSS Variables (Custom Properties) ---
+           Defined once, used everywhere. If we change a colour here,
+           it changes across the entire page. This is how we maintain
+           the RECONOMANIA visual identity consistently.
+           var(--name) references a variable defined here. */
+        :root {
+            --bg-primary: #0f1117;        /* Deep dark background */
+            --bg-secondary: #161822;      /* Slightly lighter dark, for cards */
+            --bg-tertiary: #1c1f2e;       /* Hover states, subtle highlights */
+            --text-primary: #e2e4ea;      /* Main text: light grey */
+            --text-secondary: #8a8fa8;    /* Subdued text: medium grey */
+            --text-muted: #505570;        /* Very subtle text */
+            --accent-blue: #4a9ece;       /* Steel blue — the brand accent */
+            --accent-blue-dim: #2a5f7e;   /* Darker blue for subtle elements */
+            --accent-blue-glow: rgba(74, 158, 206, 0.15); /* Blue glow effect */
+            --chart-line: #4a9ece;        /* The main data line colour */
+            --chart-area: rgba(74, 158, 206, 0.08); /* Faint fill under line */
+            --grid-colour: #1e2235;       /* Chart grid lines */
+            --border-colour: #252840;     /* Card borders */
+            --font-body: 'DM Sans', sans-serif;
+            --font-brand: 'Instrument Serif', serif;
+        }
+
+        /* --- Reset & Base ---
+           Remove default browser styling that varies between browsers.
+           Start from a clean, consistent baseline. */
+        *, *::before, *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            /* box-sizing: border-box means padding and borders are included
+               in the element's width/height, not added on top. This makes
+               layout calculations intuitive. Without it, a 100px-wide box
+               with 10px padding would actually be 120px wide. */
+        }
+
+        body {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: var(--font-body);
+            font-weight: 400;
+            line-height: 1.6;
+            /* Prevent horizontal scrollbar from appearing */
+            overflow-x: hidden;
+        }
+
+        /* --- Header / Brand Bar --- */
+        .header {
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid var(--border-colour);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .brand {
+            display: flex;
+            align-items: baseline;
+            gap: 1rem;
+        }
+
+        .brand-name {
+            font-family: var(--font-brand);
+            font-size: 1.6rem;
+            color: var(--text-primary);
+            letter-spacing: 0.04em;
+        }
+
+        /* Style the 'O' in RECONOMANIA with a crosshair-inspired design.
+           We use CSS to add a subtle ring around the O, evoking the
+           crosshair motif from the brand identity (Concept Paper Section 2.2). */
+        .brand-o {
+            display: inline-block;
+            position: relative;
+            color: var(--accent-blue);
+        }
+
+        .brand-o::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 1.4em;
+            height: 1.4em;
+            border: 1px solid var(--accent-blue-dim);
+            border-radius: 50%;
+            pointer-events: none;
+        }
+
+        .brand-tagline {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            font-weight: 500;
+        }
+
+        /* --- Main Content Area --- */
+        .main {
+            max-width: 1200px;
+            margin: 0 auto;       /* Centers the content horizontally */
+            padding: 2rem;
+        }
+
+        /* --- Chart Section --- */
+        .chart-section {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-colour);
+            border-radius: 8px;
+            padding: 2rem;
+            margin-top: 1rem;
+            position: relative;
+        }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .chart-title {
+            font-family: var(--font-brand);
+            font-size: 1.5rem;
+            color: var(--text-primary);
+            font-weight: 400;
+        }
+
+        .chart-subtitle {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-top: 0.3rem;
+        }
+
+        /* --- Current Rate Display --- */
+        .current-rate {
+            text-align: right;
+        }
+
+        .current-rate-value {
+            font-size: 2rem;
+            font-weight: 300;
+            color: var(--accent-blue);
+            letter-spacing: -0.02em;
+        }
+
+        .current-rate-date {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 0.15rem;
+        }
+
+        /* --- Date Range Buttons ---
+           These buttons let the user switch between time horizons:
+           1 year, 5 years, 10 years, or all available data. */
+        .range-buttons {
+            display: flex;
+            gap: 0.4rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .range-btn {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-colour);
+            color: var(--text-secondary);
+            padding: 0.35rem 0.9rem;
+            border-radius: 4px;
+            font-family: var(--font-body);
+            font-size: 0.78rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            /* 'transition' makes property changes animate smoothly over 0.2s
+               instead of snapping instantly. */
+        }
+
+        .range-btn:hover {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            border-color: var(--accent-blue-dim);
+        }
+
+        .range-btn.active {
+            background: var(--accent-blue-dim);
+            color: var(--text-primary);
+            border-color: var(--accent-blue);
+        }
+
+        /* --- Chart Container ---
+           The SVG chart will be injected here by D3.js. */
+        .chart-container {
+            width: 100%;
+            position: relative;
+        }
+
+        /* --- D3 Chart Styling ---
+           These rules style the SVG elements that D3 creates.
+           SVG (Scalable Vector Graphics) is the drawing technology
+           D3 uses. It creates shapes (lines, rectangles, circles)
+           defined by coordinates, not pixels — so they stay sharp
+           at any zoom level. */
+
+        /* The main data line */
+        .data-line {
+            fill: none;
+            stroke: var(--chart-line);
+            stroke-width: 1.5;
+        }
+
+        /* The shaded area under the line */
+        .data-area {
+            fill: var(--chart-area);
+        }
+
+        /* Axis tick labels (the numbers along the axes) */
+        .axis text {
+            font-family: var(--font-body);
+            font-size: 11px;
+            fill: var(--text-muted);
+        }
+
+        /* Axis lines and ticks */
+        .axis line,
+        .axis path {
+            stroke: var(--grid-colour);
+        }
+
+        /* Grid lines (horizontal lines across the chart) */
+        .grid line {
+            stroke: var(--grid-colour);
+            stroke-dasharray: 2, 3;
+            /* Dashed lines: 2px dash, 3px gap. Subtler than solid lines. */
+        }
+
+        .grid path {
+            stroke: none;
+            /* Hide the axis line itself for grids — we only want the ticks */
+        }
+
+        /* --- Tooltip ---
+           The tooltip appears when hovering over the chart, showing the
+           exact date and value at the cursor position. */
+        .tooltip {
+            position: absolute;
+            background: var(--bg-primary);
+            border: 1px solid var(--accent-blue-dim);
+            border-radius: 4px;
+            padding: 0.6rem 0.8rem;
+            font-size: 0.8rem;
+            pointer-events: none;
+            /* pointer-events: none means the tooltip doesn't interfere with
+               mouse events — you can hover "through" it to the chart below. */
+            opacity: 0;
+            transition: opacity 0.15s ease;
+            z-index: 10;
+        }
+
+        .tooltip-date {
+            color: var(--text-secondary);
+            font-size: 0.7rem;
+            margin-bottom: 0.2rem;
+        }
+
+        .tooltip-value {
+            color: var(--accent-blue);
+            font-weight: 500;
+            font-size: 0.95rem;
+        }
+
+        /* --- Crosshair Lines ---
+           Vertical and horizontal lines that follow the cursor across the
+           chart, helping the user track their position. */
+        .crosshair-line {
+            stroke: var(--text-muted);
+            stroke-width: 0.5;
+            stroke-dasharray: 3, 3;
+            opacity: 0.5;
+        }
+
+        /* The small circle that appears on the data line at the cursor position */
+        .hover-dot {
+            fill: var(--accent-blue);
+            stroke: var(--bg-secondary);
+            stroke-width: 2;
+        }
+
+        /* --- Footer --- */
+        .chart-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border-colour);
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+
+        /* --- Loading State --- */
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 400px;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .loading-dot {
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            background: var(--accent-blue);
+            border-radius: 50%;
+            margin-right: 0.5rem;
+            animation: pulse 1.2s ease-in-out infinite;
+        }
+
+        /* A simple pulsing animation for the loading indicator.
+           @keyframes defines an animation sequence.
+           0% = start state, 50% = midpoint, 100% = end state.
+           The animation property on .loading-dot applies it. */
+        @keyframes pulse {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+
+        /* --- Error State --- */
+        .error-message {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 400px;
+            color: #ce4a4a;
+            font-size: 0.9rem;
+            text-align: center;
+            padding: 2rem;
+        }
+
+        /* --- Responsive Design ---
+           @media queries apply different styles based on screen width.
+           This implements the mobile-compatible requirement from
+           Concept Paper Section 8.4. */
+        @media (max-width: 768px) {
+            .header {
+                padding: 1rem;
+                flex-direction: column;
+                gap: 0.3rem;
+            }
+
+            .brand-tagline {
+                display: none;
+                /* Hide tagline on small screens to save space */
+            }
+
+            .main {
+                padding: 1rem;
+            }
+
+            .chart-section {
+                padding: 1rem;
+            }
+
+            .chart-header {
+                flex-direction: column;
+            }
+
+            .current-rate {
+                text-align: left;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ============================================================
+         HTML STRUCTURE
+         ============================================================
+         HTML defines the structure and content of the page.
+         Think of it as the blueprint: what elements exist and how
+         they're nested. CSS (above) controls how they look.
+         JavaScript (below) controls how they behave.
+         ============================================================ -->
+
+    <!-- Header bar with brand identity -->
+    <header class="header">
+        <div class="brand">
+            <!--
+            The brand name with the styled 'O'. We split "RECONOMANIA"
+            so we can wrap the O in a <span> with the crosshair CSS effect.
+            -->
+            <span class="brand-name">
+                REC<span class="brand-o">O</span>NOMANIA
+            </span>
+            <span class="brand-tagline">Financial Reconnaissance for Romania</span>
+        </div>
+    </header>
+
+    <!-- Main content area -->
+    <main class="main">
+        <div class="chart-section">
+
+            <!-- Chart header: title on the left, current rate on the right -->
+            <div class="chart-header">
+                <div>
+                    <h1 class="chart-title">EUR/RON Reference Exchange Rate</h1>
+                    <div class="chart-subtitle">
+                        BNR daily reference rate · RON per 1 EUR
+                    </div>
+                </div>
+                <div class="current-rate">
+                    <!--
+                    These elements are empty now and will be filled by
+                    JavaScript once the data loads. The 'id' attributes
+                    let JavaScript find them with document.getElementById().
+                    -->
+                    <div class="current-rate-value" id="currentRate">—</div>
+                    <div class="current-rate-date" id="currentDate">Loading...</div>
+                </div>
+            </div>
+
+            <!-- Date range selector buttons -->
+            <div class="range-buttons">
+                <button class="range-btn" data-range="1Y">1Y</button>
+                <button class="range-btn" data-range="5Y">5Y</button>
+                <button class="range-btn" data-range="10Y">10Y</button>
+                <button class="range-btn active" data-range="ALL">ALL</button>
+                <!--
+                'data-range' is a custom HTML attribute (data-* attributes).
+                JavaScript reads this to know which time range each button
+                represents. The 'active' class highlights the selected button.
+                -->
+            </div>
+
+            <!-- Chart container: D3 will inject an SVG element here -->
+            <div class="chart-container" id="chartContainer">
+                <div class="loading">
+                    <span class="loading-dot"></span>
+                    Loading data from BNR...
+                </div>
+            </div>
+
+            <!-- Tooltip: hidden by default, shown on hover -->
+            <div class="tooltip" id="tooltip">
+                <div class="tooltip-date" id="tooltipDate"></div>
+                <div class="tooltip-value" id="tooltipValue"></div>
+            </div>
+
+            <!-- Footer with source attribution and copyright -->
+            <div class="chart-footer">
+                <span>Source: National Bank of Romania (BNR)</span>
+                <span>&copy; RECONOMANIA</span>
+            </div>
+        </div>
+    </main>
+
+
+    <!-- ============================================================
+         JAVASCRIPT
+         ============================================================
+         This script runs after the HTML above has loaded. It:
+         1. Fetches data from the backend API
+         2. Processes it for D3
+         3. Draws the chart
+         4. Adds interactivity (hover, range buttons)
+
+         D3.js works by "binding" data to visual elements. The core
+         pattern is: select an element, bind data to it, and define
+         how the data maps to visual properties (position, colour, etc.)
+         ============================================================ -->
+    <script>
+    // 'use strict' enables stricter JavaScript parsing rules. It catches
+    // common mistakes (like accidentally creating global variables) that
+    // would silently pass in normal mode. Always use it.
+    'use strict';
+
+    // ================================================================
+    // CONFIGURATION
+    // ================================================================
+
+    // The API endpoint to fetch data from. This matches the FastAPI route
+    // defined in backend.py.
+    const API_URL = '/api/series/bnr_eurron_daily';
+
+    // Chart dimensions and spacing.
+    // 'margin' defines the space between the chart area and the container edges.
+    // This space is used for axis labels and tick marks.
+    // These values are in pixels.
+    const margin = { top: 20, right: 30, bottom: 40, left: 60 };
+
+
+    // ================================================================
+    // STATE
+    // ================================================================
+    // These variables hold the application's state — the data and current
+    // settings that determine what the chart shows. They're declared here
+    // (at the top level) so all functions can access them.
+
+    let allData = [];           // The complete dataset from the API
+    let filteredData = [];      // The currently displayed subset (after date range filter)
+    let currentRange = 'ALL';   // Which range button is active
+
+
+    // ================================================================
+    // DATA FETCHING
+    // ================================================================
+
+    /**
+     * Fetches the EUR/RON data from the backend API.
+     *
+     * 'async/await' is JavaScript's way of handling operations that take
+     * time (like network requests). 'await' pauses execution until the
+     * operation completes, but without freezing the browser — other things
+     * (animations, user interactions) continue working.
+     *
+     * 'fetch()' is the browser's built-in function for making HTTP requests.
+     * It's the JavaScript equivalent of Python's 'requests.get()'.
+     */
+    async function loadData() {
+        try {
+            // Send a GET request to the API.
+            const response = await fetch(API_URL);
+
+            // Check if the request succeeded (status code 200).
+            if (!response.ok) {
+                throw new Error(`API returned status ${response.status}`);
+            }
+
+            // Parse the JSON response body into a JavaScript object.
+            // The API returns: { series_id, name, units, data: [...] }
+            const json = await response.json();
+
+            // Transform the raw API data into the format D3 needs.
+            // D3 works best with proper JavaScript Date objects for the x-axis
+            // and numbers for the y-axis.
+            //
+            // d3.timeParse() creates a parser function that converts date
+            // strings into Date objects. '%Y-%m-%d' means "year-month-day"
+            // format, matching what the API returns (e.g., "2025-03-14").
+            const parseDate = d3.timeParse('%Y-%m-%d');
+
+            allData = json.data.map(function(d) {
+                return {
+                    date: parseDate(d.date),   // String → Date object
+                    value: d.value             // Already a number (float)
+                };
+            });
+
+            // Sort by date ascending (oldest first). The API should already
+            // return sorted data, but defensive coding ensures it.
+            allData.sort(function(a, b) { return a.date - b.date; });
+
+            // Display the most recent rate in the header.
+            if (allData.length > 0) {
+                const latest = allData[allData.length - 1];
+                document.getElementById('currentRate').textContent =
+                    latest.value.toFixed(4);
+                    // .toFixed(4) formats the number to exactly 4 decimal places.
+                    // 4.9737 stays as "4.9737"; 5.1 becomes "5.1000".
+                document.getElementById('currentDate').textContent =
+                    d3.timeFormat('%d %B %Y')(latest.date);
+                    // d3.timeFormat formats a Date object as a readable string.
+                    // '%d %B %Y' → "14 March 2025"
+            }
+
+            // Initial render: show all data.
+            filteredData = allData;
+            drawChart();
+
+        } catch (error) {
+            // If anything goes wrong (network error, API down, bad JSON),
+            // show a user-friendly error instead of a blank chart.
+            console.error('Failed to load data:', error);
+            document.getElementById('chartContainer').innerHTML =
+                '<div class="error-message">' +
+                'Could not load data. Make sure the backend is running ' +
+                '(uvicorn backend:app --reload).' +
+                '</div>';
+        }
+    }
+
+
+    // ================================================================
+    // CHART DRAWING
+    // ================================================================
+
+    /**
+     * Draws (or redraws) the D3 chart using the current filteredData.
+     *
+     * This function is called:
+     * - Once on initial load (with all data)
+     * - Each time the user clicks a range button (with filtered data)
+     * - Each time the browser window is resized
+     *
+     * It clears any existing chart and draws a fresh one. This "clear and
+     * redraw" approach is simpler than trying to update an existing chart
+     * in place, and perfectly performant for our data size.
+     */
+    function drawChart() {
+        // --- Setup: calculate dimensions ---
+        const container = document.getElementById('chartContainer');
+
+        // Clear any existing content (previous chart or loading message).
+        container.innerHTML = '';
+
+        // Get the container's current width. The chart fills its container.
+        // The height is a fixed proportion of the width (aspect ratio).
+        const containerWidth = container.clientWidth;
+        const width = containerWidth - margin.left - margin.right;
+        const height = 420 - margin.top - margin.bottom;
+
+        // Guard: don't draw if there's no data or no space.
+        if (filteredData.length === 0 || width <= 0) return;
+
+        // --- Create the SVG element ---
+        // SVG (Scalable Vector Graphics) is a drawing canvas inside HTML.
+        // D3 creates an <svg> element and draws shapes (lines, circles, text)
+        // inside it using coordinates.
+        //
+        // d3.select() finds an HTML element (like document.querySelector).
+        // .append('svg') creates a new <svg> child element inside it.
+        // .attr() sets attributes on the element.
+        const svg = d3.select('#chartContainer')
+            .append('svg')
+            .attr('width', containerWidth)
+            .attr('height', height + margin.top + margin.bottom);
+
+        // Create a <g> (group) element offset by the margins.
+        // Everything we draw goes inside this group, so we don't have to
+        // add margin offsets to every single coordinate.
+        // 'transform: translate(x, y)' moves the group's origin point.
+        const g = svg.append('g')
+            .attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
+
+        // --- Scales ---
+        // Scales are the core of D3. A scale is a function that maps
+        // data values to pixel positions.
+        //
+        // scaleTime() maps Date objects to horizontal pixel positions.
+        //   domain = the data range (earliest date → latest date)
+        //   range = the pixel range (0 → chart width)
+        //   So if the domain is [Jan 2005, Mar 2026] and the range is [0, 1000],
+        //   a date in mid-2015 maps to roughly pixel 500.
+        //
+        // scaleLinear() maps numbers to vertical pixel positions.
+        //   Note: SVG's y-axis is inverted (0 is at the top), so the range
+        //   goes from [height, 0] — high values map to low y-coordinates
+        //   (near the top of the chart).
+
+        const x = d3.scaleTime()
+            .domain(d3.extent(filteredData, function(d) { return d.date; }))
+            // d3.extent() returns [min, max] of the array.
+            .range([0, width]);
+
+        // For the y-axis, add a small buffer above and below the actual data
+        // range so the line doesn't touch the edges of the chart.
+        const yMin = d3.min(filteredData, function(d) { return d.value; });
+        const yMax = d3.max(filteredData, function(d) { return d.value; });
+        const yPadding = (yMax - yMin) * 0.08;
+
+        const y = d3.scaleLinear()
+            .domain([yMin - yPadding, yMax + yPadding])
+            .range([height, 0]);
+
+        // --- Grid Lines ---
+        // Horizontal lines across the chart that help the eye track values.
+        // We draw these first so they appear behind the data line.
+        g.append('g')
+            .attr('class', 'grid')
+            .call(
+                d3.axisLeft(y)
+                    .tickSize(-width)     // Extend tick lines across full width
+                    .tickFormat('')        // No labels (the real axis has those)
+                    .ticks(6)             // Approximately 6 grid lines
+            );
+
+        // --- Area Fill ---
+        // A subtle shaded area under the line, giving it visual weight.
+        // d3.area() generates an SVG path string for a filled shape.
+        const area = d3.area()
+            .x(function(d) { return x(d.date); })
+            .y0(height)                               // Bottom edge = chart bottom
+            .y1(function(d) { return y(d.value); });  // Top edge = data value
+
+        g.append('path')
+            .datum(filteredData)    // Bind the entire dataset to this single path
+            .attr('class', 'data-area')
+            .attr('d', area);      // 'd' is the SVG path attribute; area() generates it
+
+        // --- Data Line ---
+        // The main line showing the EUR/RON rate over time.
+        // d3.line() generates an SVG path string for a line (no fill).
+        const line = d3.line()
+            .x(function(d) { return x(d.date); })
+            .y(function(d) { return y(d.value); });
+
+        g.append('path')
+            .datum(filteredData)
+            .attr('class', 'data-line')
+            .attr('d', line);
+
+        // --- X Axis (dates) ---
+        g.append('g')
+            .attr('class', 'axis')
+            .attr('transform', 'translate(0,' + height + ')')
+            // Position at the bottom of the chart area
+            .call(
+                d3.axisBottom(x)
+                    .ticks(width > 600 ? 8 : 4)
+                    // Fewer ticks on narrow screens to avoid overlap.
+                    .tickFormat(d3.timeFormat('%b %Y'))
+                    // '%b %Y' → "Mar 2025" (abbreviated month + year)
+                    .tickSizeOuter(0)
+                    // Remove the small ticks at the axis endpoints
+            );
+
+        // --- Y Axis (exchange rate values) ---
+        g.append('g')
+            .attr('class', 'axis')
+            .call(
+                d3.axisLeft(y)
+                    .ticks(6)
+                    .tickFormat(function(d) { return d.toFixed(2); })
+                    // Show 2 decimal places on the y-axis labels
+            );
+
+        // --- Interactive Hover Layer ---
+        // This creates an invisible rectangle covering the entire chart.
+        // Mouse events (move, enter, leave) on this rectangle trigger the
+        // tooltip and crosshair display.
+
+        // Crosshair: vertical line following the cursor
+        const crosshairV = g.append('line')
+            .attr('class', 'crosshair-line')
+            .style('opacity', 0);
+
+        // Crosshair: horizontal line at the data value
+        const crosshairH = g.append('line')
+            .attr('class', 'crosshair-line')
+            .style('opacity', 0);
+
+        // Small circle on the data line at the hover position
+        const hoverDot = g.append('circle')
+            .attr('class', 'hover-dot')
+            .attr('r', 4)
+            .style('opacity', 0);
+
+        // References to tooltip elements
+        const tooltip = document.getElementById('tooltip');
+        const tooltipDate = document.getElementById('tooltipDate');
+        const tooltipValue = document.getElementById('tooltipValue');
+
+        // d3.bisector creates a function that finds the nearest data point
+        // to a given date. When the user hovers at a position, we convert
+        // the pixel x-coordinate to a date (using x.invert()), then use
+        // the bisector to find the closest actual data point.
+        const bisect = d3.bisector(function(d) { return d.date; }).left;
+
+        // The invisible overlay rectangle that captures mouse events.
+        g.append('rect')
+            .attr('width', width)
+            .attr('height', height)
+            .style('fill', 'none')
+            .style('pointer-events', 'all')
+            .on('mousemove', function(event) {
+                // Get the mouse x-position relative to the chart area.
+                // d3.pointer() converts the mouse event's page coordinates
+                // to coordinates relative to the specified element.
+                const mouseX = d3.pointer(event, this)[0];
+
+                // Convert pixel position to a date using the inverse scale.
+                const dateAtMouse = x.invert(mouseX);
+
+                // Find the nearest data point using binary search (bisect).
+                const i = bisect(filteredData, dateAtMouse, 1);
+
+                // Compare the two adjacent points to find which is closer.
+                const d0 = filteredData[i - 1];
+                const d1 = filteredData[i];
+                if (!d0) return;
+                const d = (!d1) ? d0 :
+                    (dateAtMouse - d0.date > d1.date - dateAtMouse ? d1 : d0);
+
+                // Position the crosshair lines
+                const px = x(d.date);
+                const py = y(d.value);
+
+                crosshairV
+                    .attr('x1', px).attr('x2', px)
+                    .attr('y1', 0).attr('y2', height)
+                    .style('opacity', 1);
+
+                crosshairH
+                    .attr('x1', 0).attr('x2', width)
+                    .attr('y1', py).attr('y2', py)
+                    .style('opacity', 1);
+
+                hoverDot
+                    .attr('cx', px).attr('cy', py)
+                    .style('opacity', 1);
+
+                // Update and position the tooltip
+                tooltipDate.textContent = d3.timeFormat('%d %B %Y')(d.date);
+                tooltipValue.textContent = d.value.toFixed(4) + ' RON';
+
+                // Position tooltip near the cursor but offset to avoid overlap.
+                // If we're in the right half of the chart, show tooltip to the left.
+                const chartRect = container.getBoundingClientRect();
+                const tooltipX = px + margin.left;
+                const tooltipY = py + margin.top;
+
+                // Flip tooltip to left side if too close to right edge
+                if (tooltipX > containerWidth * 0.7) {
+                    tooltip.style.left = (tooltipX - 130) + 'px';
+                } else {
+                    tooltip.style.left = (tooltipX + 15) + 'px';
+                }
+                tooltip.style.top = (tooltipY + 50) + 'px';
+                tooltip.style.opacity = '1';
+            })
+            .on('mouseleave', function() {
+                // Hide everything when the mouse leaves the chart area.
+                crosshairV.style('opacity', 0);
+                crosshairH.style('opacity', 0);
+                hoverDot.style('opacity', 0);
+                tooltip.style.opacity = '0';
+            });
+    }
+
+
+    // ================================================================
+    // DATE RANGE FILTERING
+    // ================================================================
+
+    /**
+     * Filters the data to show only the specified time range and redraws
+     * the chart. Called when the user clicks a range button.
+     */
+    function setRange(range) {
+        currentRange = range;
+
+        if (range === 'ALL') {
+            // Show everything
+            filteredData = allData;
+        } else {
+            // Calculate the start date based on the range.
+            // We work backwards from the most recent data point.
+            const latest = allData[allData.length - 1].date;
+            const start = new Date(latest);
+
+            // 'switch' checks the value of 'range' and runs the matching case.
+            switch (range) {
+                case '1Y':
+                    start.setFullYear(start.getFullYear() - 1);
+                    break;
+                case '5Y':
+                    start.setFullYear(start.getFullYear() - 5);
+                    break;
+                case '10Y':
+                    start.setFullYear(start.getFullYear() - 10);
+                    break;
+            }
+
+            // Filter: keep only data points on or after the start date.
+            filteredData = allData.filter(function(d) {
+                return d.date >= start;
+            });
+        }
+
+        // Update the active button styling.
+        // querySelectorAll finds all elements matching the CSS selector.
+        // forEach runs a function on each one.
+        document.querySelectorAll('.range-btn').forEach(function(btn) {
+            if (btn.getAttribute('data-range') === range) {
+                btn.classList.add('active');     // Add the 'active' CSS class
+            } else {
+                btn.classList.remove('active');  // Remove it from all others
+            }
+        });
+
+        // Redraw the chart with the filtered data.
+        drawChart();
+    }
+
+
+    // ================================================================
+    // EVENT LISTENERS
+    // ================================================================
+    // "Event listeners" tell the browser: "when this thing happens, run
+    // this function." We set up listeners for button clicks and window
+    // resizing.
+
+    // Attach click handlers to range buttons.
+    document.querySelectorAll('.range-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            setRange(this.getAttribute('data-range'));
+        });
+    });
+
+    // Redraw the chart when the browser window is resized.
+    // The chart width is based on its container, so resizing the window
+    // requires recalculating dimensions and redrawing.
+    //
+    // We "debounce" this: instead of redrawing on every pixel of resize
+    // (which would be sluggish), we wait 200ms after the user stops
+    // resizing before redrawing. This is done with setTimeout/clearTimeout.
+    let resizeTimer;
+    window.addEventListener('resize', function() {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(function() {
+            if (filteredData.length > 0) {
+                drawChart();
+            }
+        }, 200);
+    });
+
+
+    // ================================================================
+    // INITIALISATION
+    // ================================================================
+    // Start the application by fetching data. Everything else flows from
+    // the loadData() function: fetch → parse → draw → interact.
+    loadData();
+
+    </script>
+</body>
+</html>
