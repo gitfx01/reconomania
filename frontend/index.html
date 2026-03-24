@@ -1,811 +1,576 @@
-<!--
-============================================================================
-RECONOMANIA — Frontend (Phase One, Revision 2)
-============================================================================
-
-FILE PURPOSE:
-    Main page of the RECONOMANIA platform — updated to reflect the brand
-    identity decisions from Phase One (see Brand Identity Reference doc).
-
-    Key changes from Revision 1:
-    - White/paper textured background (replacing dark theme)
-    - Charcoal header bar with light logo
-    - Navy blue (#0F3B5C) as primary chart colour
-    - Montserrat typography for brand elements
-    - Improved x-axis: 3-letter month + year below
-    - Added 1M and 3M range buttons
-    - Chart watermark "© RECONOMANIA"
-
-DATE:        March 2026
-PHASE:       Phase One
-============================================================================
--->
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RECONOMANIA — EUR/RON Exchange Rate</title>
-
-    <script src="https://d3js.org/d3.v7.min.js"></script>
-
+    <title>RECONOMANIA — Financial Reconnaissance</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
-
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Montserrat:wght@400;600;700;900&display=swap" rel="stylesheet">
     <style>
-        :root {
-            /* Structural colours (Brand Identity Reference) */
-            --charcoal: #2A2A2A;
-            --off-white: #F5F5F3;
-            --text-primary: #1F1F1F;
-            --text-secondary: #6B6B6B;
-            --borders: #D0D0D0;
-
-            /* Primary brand colour */
-            --navy: #0F3B5C;
-
-            /* Chart series palette (ordered by usage frequency) */
-            --chart-1-navy: #0F3B5C;
-            --chart-2-forest: #2D8C5A;
-            --chart-3-olive: #8FA03E;
-            --chart-4-sky: #5B9BD5;
-            --chart-5-purple: #5C4D8A;
-            --chart-6-jade: #45B89A;
-            --chart-7-cornflower: #7CB5E3;
-            --chart-8-leaf: #6AAF5C;
-
-            /* Emphasis */
-            --alert-red: #B22E2E;
-
-            /* Typography */
-            --font-brand: 'Montserrat', sans-serif;
-            --font-body: 'DM Sans', sans-serif;
-
-            /* Chart-specific */
-            --chart-area-fill: rgba(15, 59, 92, 0.07);
-            --chart-grid: #E8E8E5;
-            --chart-axis-text: #888888;
-            --watermark: #C8C8C5;
-        }
-
-        *, *::before, *::after {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            color: var(--text-primary);
-            font-family: var(--font-body);
-            font-weight: 400;
+            background-color: #F5F5F3;
+            color: #1F1F1F;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 16px;
             line-height: 1.6;
-            overflow-x: hidden;
-            /*
-            Paper texture background — CSS approximation.
-            The Brand Identity Reference calls for a real photographic
-            paper texture (whitened JPEG). Until that asset is ready,
-            this CSS creates a subtle warm-white background with faint
-            grain lines, approximating the paper feel.
-            */
-            background-color: var(--off-white);
-            background-image:
-                repeating-linear-gradient(
-                    0deg,
-                    transparent,
-                    transparent 2px,
-                    rgba(0,0,0,0.008) 2px,
-                    rgba(0,0,0,0.008) 4px
-                ),
-                repeating-linear-gradient(
-                    90deg,
-                    transparent,
-                    transparent 3px,
-                    rgba(0,0,0,0.005) 3px,
-                    rgba(0,0,0,0.005) 6px
-                );
         }
-
-        /* Header bar: solid charcoal, white logo (Brand Identity Reference) */
         .header {
-            background: var(--charcoal);
-            padding: 1.1rem 2rem;
+            background-color: #2A2A2A;
+            padding: 14px 32px;
             display: flex;
             align-items: center;
             justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
         }
-
-        .brand {
-            display: flex;
-            align-items: baseline;
-            gap: 1.2rem;
+        .header-logo {
+            height: 38px;
+            width: auto;
+            display: block;
+            object-fit: contain;
         }
-
-        .brand-name {
-            font-family: var(--font-brand);
-            font-size: 1.5rem;
-            letter-spacing: 0.06em;
-        }
-
-        .brand-r {
-            color: var(--off-white);
-            font-weight: 700;
-        }
-
-        .brand-econ {
-            color: #6BAED6;
-            font-weight: 700;
-        }
-
-        .brand-o {
-            display: inline-block;
-            position: relative;
-            padding: 0 0.08em;
-        }
-
-        .brand-o::after {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 1.15em;
-            height: 1.15em;
-            border: 1px solid rgba(107, 174, 214, 0.5);
-            border-radius: 50%;
-            pointer-events: none;
-        }
-
-        .brand-mania {
-            color: var(--off-white);
-            font-weight: 400;
-        }
-
-        .brand-tagline {
-            font-family: var(--font-body);
-            font-size: 0.7rem;
-            color: #888888;
-            letter-spacing: 0.18em;
-            text-transform: uppercase;
-            font-weight: 500;
-        }
-
-        .main {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 2rem;
-        }
-
-        .chart-section {
-            background: #FFFFFF;
-            border: 1px solid var(--borders);
-            border-radius: 6px;
-            padding: 2rem;
-            margin-top: 1rem;
-            position: relative;
-            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
-        }
-
-        .chart-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 1.5rem;
-            flex-wrap: wrap;
-            gap: 1rem;
-        }
-
-        .chart-title {
-            font-family: var(--font-brand);
-            font-size: 1.35rem;
-            color: var(--charcoal);
-            font-weight: 600;
-        }
-
-        .chart-subtitle {
-            font-size: 0.82rem;
-            color: var(--text-secondary);
-            margin-top: 0.25rem;
-        }
-
-        .current-rate {
-            text-align: right;
-        }
-
-        .current-rate-value {
-            font-size: 2rem;
-            font-weight: 600;
-            color: var(--navy);
-            font-family: var(--font-brand);
-            letter-spacing: -0.02em;
-        }
-
-        .current-rate-date {
-            font-size: 0.72rem;
-            color: var(--text-secondary);
-            margin-top: 0.1rem;
-        }
-
-        .range-buttons {
-            display: flex;
-            gap: 0.35rem;
-            margin-bottom: 1.5rem;
-        }
-
-        .range-btn {
-            background: #FFFFFF;
-            border: 1px solid var(--borders);
-            color: var(--text-secondary);
-            padding: 0.3rem 0.8rem;
-            border-radius: 3px;
-            font-family: var(--font-body);
-            font-size: 0.75rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.15s ease;
-        }
-
-        .range-btn:hover {
-            border-color: var(--navy);
-            color: var(--navy);
-        }
-
-        .range-btn.active {
-            background: var(--navy);
-            color: #FFFFFF;
-            border-color: var(--navy);
-        }
-
-        .chart-container {
-            width: 100%;
-            position: relative;
-        }
-
-        .data-line {
-            fill: none;
-            stroke: var(--chart-1-navy);
-            stroke-width: 1.5;
-        }
-
-        .data-area {
-            fill: var(--chart-area-fill);
-        }
-
-        .axis text {
-            font-family: var(--font-body);
+        .header-tagline {
+            font-family: 'Montserrat', sans-serif;
             font-size: 11px;
-            fill: var(--chart-axis-text);
+            font-weight: 400;
+            color: #6B6B6B;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
         }
-
-        .axis line,
-        .axis path {
-            stroke: var(--borders);
+        .main {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 40px 24px 60px;
         }
-
-        .axis-month {
-            font-family: var(--font-body);
-            font-size: 10px;
-            fill: var(--chart-axis-text);
-            text-anchor: middle;
+        .chart-section { margin-bottom: 56px; }
+        .chart-section:last-child { margin-bottom: 0; }
+        .chart-title {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 18px;
+            font-weight: 700;
+            color: #1F1F1F;
+            margin-bottom: 4px;
         }
-
-        .axis-year {
-            font-family: var(--font-body);
-            font-size: 10px;
-            fill: var(--text-secondary);
-            font-weight: 500;
-            text-anchor: middle;
+        .chart-subtitle {
+            font-size: 13px;
+            color: #6B6B6B;
+            margin-bottom: 16px;
         }
-
-        .grid line {
-            stroke: var(--chart-grid);
-            stroke-dasharray: 2, 3;
-        }
-
-        .grid path {
-            stroke: none;
-        }
-
-        .tooltip {
-            position: absolute;
+        .chart-container {
+            position: relative;
+            width: 100%;
             background: #FFFFFF;
-            border: 1px solid var(--borders);
-            border-radius: 4px;
-            padding: 0.55rem 0.75rem;
-            font-size: 0.8rem;
-            pointer-events: none;
-            opacity: 0;
-            transition: opacity 0.15s ease;
-            z-index: 10;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            border: 1px solid #E8E8E5;
+            border-radius: 6px;
+            padding: 20px 16px 12px;
         }
-
-        .tooltip-date {
-            color: var(--text-secondary);
-            font-size: 0.7rem;
-            margin-bottom: 0.15rem;
-        }
-
-        .tooltip-value {
-            color: var(--navy);
-            font-weight: 600;
-            font-size: 0.95rem;
-        }
-
-        .crosshair-line {
-            stroke: var(--text-secondary);
-            stroke-width: 0.5;
-            stroke-dasharray: 3, 3;
-            opacity: 0.4;
-        }
-
-        .hover-dot {
-            fill: var(--navy);
-            stroke: #FFFFFF;
-            stroke-width: 2;
-        }
-
-        .chart-footer {
+        .chart-legend {
             display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-top: 1rem;
-            padding-top: 0.8rem;
-            border-top: 1px solid var(--chart-grid);
-            font-size: 0.68rem;
-            color: var(--text-secondary);
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 12px;
+            font-size: 12px;
+            color: #6B6B6B;
         }
-
-        .watermark {
-            font-family: var(--font-brand);
-            font-size: 9px;
-            font-weight: 600;
-            fill: var(--watermark);
-            letter-spacing: 1.5px;
+        .chart-legend .legend-item { display: flex; align-items: center; gap: 5px; }
+        .chart-legend .legend-swatch { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+        .chart-legend .legend-line { width: 14px; height: 2px; flex-shrink: 0; }
+        .chart-source {
+            font-size: 11px;
+            color: #ABABAB;
+            margin-top: 8px;
         }
-
-        .loading {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 400px;
-            color: var(--text-secondary);
-            font-size: 0.9rem;
+        .range-buttons { display: flex; gap: 6px; margin-bottom: 12px; }
+        .range-btn {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 12px; font-weight: 500;
+            padding: 4px 12px;
+            border: 1px solid #D0D0D0; border-radius: 4px;
+            background: transparent; color: #6B6B6B;
+            cursor: pointer; transition: all 0.15s;
         }
-
-        .loading-dot {
-            display: inline-block;
-            width: 6px;
-            height: 6px;
-            background: var(--navy);
-            border-radius: 50%;
-            margin-right: 0.5rem;
-            animation: pulse 1.2s ease-in-out infinite;
+        .range-btn:hover { border-color: #0F3B5C; color: #0F3B5C; }
+        .range-btn.active { background: #0F3B5C; border-color: #0F3B5C; color: #FFF; }
+        .chart-svg { width: 100%; display: block; overflow: visible; }
+        .footer {
+            text-align: center; padding: 24px;
+            font-size: 12px; color: #ABABAB;
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 600; letter-spacing: 0.05em;
         }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 0.3; }
-            50% { opacity: 1; }
+        @media (max-width: 640px) {
+            .header { padding: 12px 16px; }
+            .header-logo { height: 30px; }
+            .header-tagline { display: none; }
+            .main { padding: 24px 12px 40px; }
+            .chart-container { padding: 14px 10px 10px; }
+            .chart-title { font-size: 16px; }
+            .chart-legend { gap: 8px; font-size: 11px; }
         }
-
-        .error-message {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 400px;
-            color: var(--alert-red);
-            font-size: 0.9rem;
-            text-align: center;
-            padding: 2rem;
-        }
-
-        @media (max-width: 768px) {
-            .header {
-                padding: 0.9rem 1rem;
-                flex-direction: column;
-                gap: 0.3rem;
-            }
-
-            .brand-tagline {
-                display: none;
-            }
-
-            .main {
-                padding: 1rem;
-            }
-
-            .chart-section {
-                padding: 1rem;
-            }
-
-            .chart-header {
-                flex-direction: column;
-            }
-
-            .current-rate {
-                text-align: left;
-            }
+        .chart-loading {
+            height: 300px; display: flex; align-items: center;
+            justify-content: center; color: #ABABAB; font-size: 13px;
         }
     </style>
 </head>
 <body>
 
-    <header class="header">
-        <div class="brand">
-            <span class="brand-name"><span class="brand-r">R</span><span class="brand-econ">ECON</span><span class="brand-mania"><span class="brand-o">O</span>MANIA</span></span>
-            <span class="brand-tagline">Financial Reconnaissance for Romania</span>
-        </div>
-    </header>
+<header class="header">
+    <img src="/static/logo_header.svg" alt="RECONOMANIA" class="header-logo">
+    <span class="header-tagline">Financial Reconnaissance</span>
+</header>
 
-    <main class="main">
-        <div class="chart-section">
+<main class="main">
 
-            <div class="chart-header">
-                <div>
-                    <h1 class="chart-title">EUR/RON Reference Exchange Rate</h1>
-                </div>
-                <div class="current-rate">
-                    <div class="current-rate-value" id="currentRate">—</div>
-                    <div class="current-rate-date" id="currentDate">Loading...</div>
-                </div>
+    <section class="chart-section">
+        <h2 class="chart-title">Banking system liquidity position</h2>
+        <p class="chart-subtitle">NBR monetary policy operations — stock daily average, RONm</p>
+        <div class="chart-container">
+            <div class="chart-legend">
+                <span class="legend-item"><span class="legend-swatch" style="background:#5C4D8A"></span>Deposit facility</span>
+                <span class="legend-item"><span class="legend-swatch" style="background:#8FA03E"></span>Deposits taken</span>
+                <span class="legend-item"><span class="legend-swatch" style="background:#2D8C5A"></span>Reverse repo</span>
+                <span class="legend-item"><span class="legend-swatch" style="background:#0F3B5C"></span>Repo</span>
+                <span class="legend-item"><span class="legend-swatch" style="background:#5B9BD5"></span>Credit facility</span>
+                <span class="legend-item"><span class="legend-line" style="background:#B22E2E"></span>Net position</span>
             </div>
+            <div id="chart-liquidity"><div class="chart-loading">Loading data…</div></div>
+            <div class="chart-source">Source: National Bank of Romania</div>
+        </div>
+    </section>
 
-            <div class="range-buttons">
+    <section class="chart-section">
+        <h2 class="chart-title">Liquidity coverage ratio</h2>
+        <p class="chart-subtitle">Romanian banking system — percent, regulatory minimum 100%</p>
+        <div class="chart-container">
+            <div class="chart-legend">
+                <span class="legend-item"><span class="legend-swatch" style="background:#0F3B5C"></span>LCR</span>
+                <span class="legend-item"><span class="legend-line" style="background:#B22E2E"></span>100% minimum</span>
+            </div>
+            <div id="chart-lcr"><div class="chart-loading">Loading data…</div></div>
+            <div class="chart-source">Source: National Bank of Romania</div>
+        </div>
+    </section>
+
+    <section class="chart-section">
+        <h2 class="chart-title">Non-performing loan ratio</h2>
+        <p class="chart-subtitle">EBA definition — Romanian banking system, percent</p>
+        <div class="chart-container">
+            <div class="chart-legend">
+                <span class="legend-item"><span class="legend-swatch" style="background:#0F3B5C"></span>NPL ratio (EBA)</span>
+            </div>
+            <div id="chart-npl"><div class="chart-loading">Loading data…</div></div>
+            <div class="chart-source">Source: National Bank of Romania</div>
+        </div>
+    </section>
+
+    <section class="chart-section">
+        <h2 class="chart-title">EUR/RON reference exchange rate</h2>
+        <p class="chart-subtitle">NBR daily reference rate — RON per 1 EUR</p>
+        <div class="chart-container">
+            <div class="range-buttons" id="fx-range-buttons">
                 <button class="range-btn" data-range="3M">3M</button>
                 <button class="range-btn" data-range="1Y">1Y</button>
                 <button class="range-btn" data-range="5Y">5Y</button>
                 <button class="range-btn" data-range="10Y">10Y</button>
                 <button class="range-btn active" data-range="ALL">ALL</button>
             </div>
-
-            <div class="chart-container" id="chartContainer">
-                <div class="loading">
-                    <span class="loading-dot"></span>
-                    Loading data from BNR...
-                </div>
+            <div class="chart-legend">
+                <span class="legend-item"><span class="legend-swatch" style="background:#0F3B5C"></span>EUR/RON</span>
             </div>
-
-            <div class="tooltip" id="tooltip">
-                <div class="tooltip-date" id="tooltipDate"></div>
-                <div class="tooltip-value" id="tooltipValue"></div>
-            </div>
-
-            <div class="chart-footer">
-                <span>Source: National Bank of Romania</span>
-                <span>&copy; RECONOMANIA</span>
-            </div>
+            <div id="chart-fx"><div class="chart-loading">Loading data…</div></div>
+            <div class="chart-source">Source: National Bank of Romania</div>
         </div>
-    </main>
+    </section>
 
-    <script>
-    'use strict';
+</main>
+<footer class="footer">© RECONOMANIA</footer>
 
-    var API_URL = '/api/series/bnr_eurron_daily';
-    var margin = { top: 20, right: 30, bottom: 50, left: 60 };
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script>
+const API = '/api/series';
+const C = {
+    navy:'#0F3B5C', forest:'#2D8C5A', olive:'#8FA03E',
+    sky:'#5B9BD5', purple:'#5C4D8A', alert:'#B22E2E',
+    charcoal:'#2A2A2A', txt1:'#1F1F1F', txt2:'#6B6B6B',
+    border:'#D0D0D0', grid:'#ECECEA'
+};
 
-    var allData = [];
-    var filteredData = [];
-    var currentRange = 'ALL';
+async function fetchS(id) {
+    const r = await fetch(`${API}/${id}`);
+    if (!r.ok) throw new Error(r.status);
+    const j = await r.json();
+    return j.data.map(d => ({ date: new Date(d.date), value: d.value }));
+}
 
-    async function loadData() {
-        try {
-            var response = await fetch(API_URL);
-            if (!response.ok) {
-                throw new Error('API returned status ' + response.status);
-            }
+/* ============================================================
+   WATERMARK: translucent "© RECONOMANIA" inside chart area
+   ============================================================ */
+function watermark(g, cw, ch) {
+    g.append('text')
+        .attr('x', cw - 6).attr('y', ch - 8)
+        .attr('text-anchor', 'end')
+        .attr('fill', '#D0D0D0').attr('opacity', 0.5)
+        .style('font-family', 'Montserrat, sans-serif')
+        .style('font-size', '10px').style('font-weight', '600')
+        .text('© RECONOMANIA');
+}
 
-            var json = await response.json();
-            var parseDate = d3.timeParse('%Y-%m-%d');
+/* ============================================================
+   SMART X-AXIS
+   Adapts format based on the date range being displayed:
+     - <6 months: "dd Mon" with year on change
+     - 6 months–3 years: "Mon" with year on change
+     - >3 years: "Mon YYYY" only at January, or yearly
+   Never repeats a label.
+   ============================================================ */
+function smartXAxis(g, x, ch, w) {
+    g.attr('transform', `translate(0,${ch})`);
+    g.append('line').attr('x1', x.range()[0]).attr('x2', x.range()[1]).attr('stroke', C.border);
 
-            allData = json.data.map(function(d) {
-                return {
-                    date: parseDate(d.date),
-                    value: d.value
-                };
-            });
+    const [dMin, dMax] = x.domain();
+    const spanDays = (dMax - dMin) / 86400000;
+    const maxTicks = Math.max(3, Math.floor(w / 80));
+    const ticks = x.ticks(Math.min(maxTicks, 14));
 
-            allData.sort(function(a, b) { return a.date - b.date; });
+    // Choose top-line format based on range
+    const fmtTop = spanDays < 180
+        ? d => d3.timeFormat('%d %b')(d)
+        : d => d3.timeFormat('%b')(d);
 
-            if (allData.length > 0) {
-                var latest = allData[allData.length - 1];
-                document.getElementById('currentRate').textContent =
-                    latest.value.toFixed(4);
-                document.getElementById('currentDate').textContent =
-                    d3.timeFormat('%d %B %Y')(latest.date);
-            }
+    // Deduplicate: skip if both top line and year are same as previous
+    let prevLabel = null;
+    ticks.forEach(d => {
+        const xp = x(d);
+        const top = fmtTop(d);
+        const yr = String(d.getFullYear());
+        const combined = top + yr;
+        if (combined === prevLabel) return;
+        prevLabel = combined;
 
-            filteredData = allData;
-            drawChart();
+        const tick = g.append('g').attr('transform', `translate(${xp},0)`);
+        tick.append('text').attr('y', 14).attr('text-anchor', 'middle')
+            .attr('fill', C.txt2).style('font-size', '11px').style('font-family', 'DM Sans')
+            .text(top);
+        tick.append('text').attr('y', 27).attr('text-anchor', 'middle')
+            .attr('fill', C.txt1).style('font-size', '11px').style('font-weight', '600')
+            .style('font-family', 'DM Sans').text(yr);
+    });
+}
 
-        } catch (error) {
-            console.error('Failed to load data:', error);
-            document.getElementById('chartContainer').innerHTML =
-                '<div class="error-message">' +
-                'Could not load data. Make sure the backend is running.' +
-                '</div>';
-        }
-    }
+/* ============================================================
+   HOVER SYSTEM
+   Crosshair + date box on axis + value label at data point.
+   Everything inside the chart `g` group so coords match.
+   ============================================================ */
+function addHover(g, x, ch, cw, datasets, fmt) {
+    const hG = g.append('g').style('display', 'none');
+    hG.append('line').attr('class', 'hl').attr('y1', 0).attr('y2', ch)
+        .attr('stroke', C.txt1).attr('stroke-width', 0.5).attr('stroke-dasharray', '3,3');
+    const db = hG.append('g');
+    db.append('rect').attr('fill', C.charcoal).attr('rx', 3).attr('height', 20).attr('y', ch + 2);
+    db.append('text').attr('fill', '#F5F5F3').attr('text-anchor', 'middle').attr('y', ch + 16)
+        .style('font-size', '11px').style('font-family', 'DM Sans');
 
-    function drawChart() {
-        var container = document.getElementById('chartContainer');
-        container.innerHTML = '';
-
-        var containerWidth = container.clientWidth;
-        var width = containerWidth - margin.left - margin.right;
-        var height = 420 - margin.top - margin.bottom;
-
-        if (filteredData.length === 0 || width <= 0) return;
-
-        var svg = d3.select('#chartContainer')
-            .append('svg')
-            .attr('width', containerWidth)
-            .attr('height', height + margin.top + margin.bottom);
-
-        var g = svg.append('g')
-            .attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
-
-        var x = d3.scaleTime()
-            .domain(d3.extent(filteredData, function(d) { return d.date; }))
-            .range([0, width]);
-
-        var yMin = d3.min(filteredData, function(d) { return d.value; });
-        var yMax = d3.max(filteredData, function(d) { return d.value; });
-        var yPadding = (yMax - yMin) * 0.08;
-
-        var y = d3.scaleLinear()
-            .domain([yMin - yPadding, yMax + yPadding])
-            .range([height, 0]);
-
-        // Grid lines
-        g.append('g')
-            .attr('class', 'grid')
-            .call(
-                d3.axisLeft(y)
-                    .tickSize(-width)
-                    .tickFormat('')
-                    .ticks(6)
-            );
-
-        // Area fill under the line
-        var area = d3.area()
-            .x(function(d) { return x(d.date); })
-            .y0(height)
-            .y1(function(d) { return y(d.value); });
-
-        g.append('path')
-            .datum(filteredData)
-            .attr('class', 'data-area')
-            .attr('d', area);
-
-        // Data line
-        var line = d3.line()
-            .x(function(d) { return x(d.date); })
-            .y(function(d) { return y(d.value); });
-
-        g.append('path')
-            .datum(filteredData)
-            .attr('class', 'data-line')
-            .attr('d', line);
-
-        // --- X Axis: Two-line labels (month + year) ---
-        // Determine tick interval based on the visible time span.
-        var domainRange = x.domain();
-        var timeSpanDays = (domainRange[1] - domainRange[0]) / (86400000);
-
-        var tickInterval;
-        if (timeSpanDays <= 45) {
-            tickInterval = d3.timeWeek.every(1);
-        } else if (timeSpanDays <= 100) {
-            tickInterval = d3.timeWeek.every(2);
-        } else if (timeSpanDays <= 400) {
-            tickInterval = d3.timeMonth.every(1);
-        } else if (timeSpanDays <= 2000) {
-            tickInterval = d3.timeMonth.every(3);
-        } else if (timeSpanDays <= 4000) {
-            tickInterval = d3.timeMonth.every(6);
-        } else {
-            tickInterval = d3.timeYear.every(1);
-        }
-
-        // Draw minimal x-axis line with small ticks, no default labels
-        g.append('g')
-            .attr('class', 'axis')
-            .attr('transform', 'translate(0,' + height + ')')
-            .call(
-                d3.axisBottom(x)
-                    .ticks(tickInterval)
-                    .tickFormat('')
-                    .tickSize(4)
-            );
-
-        // Generate tick positions
-        var ticks = x.ticks(tickInterval);
-
-        // For short ranges (1M, 3M), show "dd Mon" format
-        var useShortFormat = (timeSpanDays <= 100);
-        var monthFormat = d3.timeFormat('%b');
-        var shortFormat = d3.timeFormat('%d %b');
-
-        // First line: month (or dd Mon for short ranges)
-        g.selectAll('.axis-month')
-            .data(ticks)
-            .enter()
-            .append('text')
-            .attr('class', 'axis-month')
-            .attr('x', function(d) { return x(d); })
-            .attr('y', height + 18)
-            .text(function(d) {
-                return useShortFormat ? shortFormat(d) : monthFormat(d);
-            });
-
-        // Second line: year — only when the year changes
-        var yearFormat = d3.timeFormat('%Y');
-        var lastYear = null;
-
-        g.selectAll('.axis-year')
-            .data(ticks)
-            .enter()
-            .append('text')
-            .attr('class', 'axis-year')
-            .attr('x', function(d) { return x(d); })
-            .attr('y', height + 32)
-            .text(function(d) {
-                var yr = yearFormat(d);
-                if (yr !== lastYear) {
-                    lastYear = yr;
-                    return yr;
-                }
-                return '';
-            });
-
-        // Y Axis
-        g.append('g')
-            .attr('class', 'axis')
-            .call(
-                d3.axisLeft(y)
-                    .ticks(6)
-                    .tickFormat(function(d) { return d.toFixed(2); })
-            );
-
-        // Watermark: "© RECONOMANIA" bottom-right inside chart
-        g.append('text')
-            .attr('class', 'watermark')
-            .attr('x', width - 5)
-            .attr('y', height - 8)
-            .attr('text-anchor', 'end')
-            .text('\u00A9 RECONOMANIA');
-
-        // --- Interactive Hover ---
-        var crosshairV = g.append('line')
-            .attr('class', 'crosshair-line')
-            .style('opacity', 0);
-
-        var crosshairH = g.append('line')
-            .attr('class', 'crosshair-line')
-            .style('opacity', 0);
-
-        var hoverDot = g.append('circle')
-            .attr('class', 'hover-dot')
-            .attr('r', 4)
-            .style('opacity', 0);
-
-        var tooltip = document.getElementById('tooltip');
-        var tooltipDate = document.getElementById('tooltipDate');
-        var tooltipValue = document.getElementById('tooltipValue');
-
-        var bisect = d3.bisector(function(d) { return d.date; }).left;
-
-        g.append('rect')
-            .attr('width', width)
-            .attr('height', height)
-            .style('fill', 'none')
-            .style('pointer-events', 'all')
-            .on('mousemove', function(event) {
-                var mouseX = d3.pointer(event, this)[0];
-                var dateAtMouse = x.invert(mouseX);
-                var i = bisect(filteredData, dateAtMouse, 1);
-                var d0 = filteredData[i - 1];
-                var d1 = filteredData[i];
-                if (!d0) return;
-                var d = (!d1) ? d0 :
-                    (dateAtMouse - d0.date > d1.date - dateAtMouse ? d1 : d0);
-
-                var px = x(d.date);
-                var py = y(d.value);
-
-                crosshairV
-                    .attr('x1', px).attr('x2', px)
-                    .attr('y1', 0).attr('y2', height)
-                    .style('opacity', 1);
-
-                crosshairH
-                    .attr('x1', 0).attr('x2', width)
-                    .attr('y1', py).attr('y2', py)
-                    .style('opacity', 1);
-
-                hoverDot
-                    .attr('cx', px).attr('cy', py)
-                    .style('opacity', 1);
-
-                tooltipDate.textContent = d3.timeFormat('%d %B %Y')(d.date);
-                tooltipValue.textContent = d.value.toFixed(4) + ' RON';
-
-                var tooltipX = px + margin.left;
-                var tooltipY = py + margin.top;
-
-                if (tooltipX > containerWidth * 0.7) {
-                    tooltip.style.left = (tooltipX - 130) + 'px';
-                } else {
-                    tooltip.style.left = (tooltipX + 15) + 'px';
-                }
-                tooltip.style.top = (tooltipY - 20) + 'px';
-                tooltip.style.opacity = '1';
-            })
-            .on('mouseleave', function() {
-                crosshairV.style('opacity', 0);
-                crosshairH.style('opacity', 0);
-                hoverDot.style('opacity', 0);
-                tooltip.style.opacity = '0';
-            });
-    }
-
-    function setRange(range) {
-        currentRange = range;
-
-        if (range === 'ALL') {
-            filteredData = allData;
-        } else {
-            var latest = allData[allData.length - 1].date;
-            var start = new Date(latest);
-
-            switch (range) {
-                case '3M':
-                    start.setMonth(start.getMonth() - 3);
-                    break;
-                case '1Y':
-                    start.setFullYear(start.getFullYear() - 1);
-                    break;
-                case '5Y':
-                    start.setFullYear(start.getFullYear() - 5);
-                    break;
-                case '10Y':
-                    start.setFullYear(start.getFullYear() - 10);
-                    break;
-            }
-
-            filteredData = allData.filter(function(d) {
-                return d.date >= start;
-            });
-        }
-
-        document.querySelectorAll('.range-btn').forEach(function(btn) {
-            if (btn.getAttribute('data-range') === range) {
-                btn.classList.add('active');
-            } else {
-                btn.classList.remove('active');
-            }
-        });
-
-        drawChart();
-    }
-
-    document.querySelectorAll('.range-btn').forEach(function(btn) {
-        btn.addEventListener('click', function() {
-            setRange(this.getAttribute('data-range'));
-        });
+    const items = datasets.map(ds => {
+        const ig = hG.append('g');
+        ig.append('circle').attr('r', 3.5).attr('fill', ds.color).attr('stroke', '#FFF').attr('stroke-width', 1.5);
+        ig.append('rect').attr('fill', ds.color).attr('opacity', 0.9).attr('rx', 3).attr('height', 18);
+        ig.append('text').attr('fill', '#FFF').style('font-size', '11px').style('font-weight', '500').style('font-family', 'DM Sans');
+        return ig;
     });
 
-    var resizeTimer;
-    window.addEventListener('resize', function() {
-        clearTimeout(resizeTimer);
-        resizeTimer = setTimeout(function() {
-            if (filteredData.length > 0) {
-                drawChart();
-            }
-        }, 200);
-    });
+    g.append('rect').attr('width', cw).attr('height', ch)
+        .attr('fill', 'none').attr('pointer-events', 'all')
+        .on('mouseenter', () => hG.style('display', null))
+        .on('mouseleave', () => hG.style('display', 'none'))
+        .on('touchstart', e => { hG.style('display', null); mv(e); })
+        .on('touchmove', e => { e.preventDefault(); mv(e); })
+        .on('touchend', () => hG.style('display', 'none'))
+        .on('mousemove', mv);
 
-    loadData();
-    </script>
+    function mv(event) {
+        const [mx] = d3.pointer(event, g.node());
+        const xd = x.invert(mx);
+        hG.select('.hl').attr('x1', mx).attr('x2', mx);
+
+        // Adaptive date format for the hover box
+        const [dMin, dMax] = x.domain();
+        const span = (dMax - dMin) / 86400000;
+        const dtFmt = span < 180 ? d3.timeFormat('%d %b %Y') : d3.timeFormat('%b %Y');
+        const dt = dtFmt(xd);
+        const dw = dt.length * 7 + 12;
+        let dbx = mx - dw / 2;
+        if (dbx < 0) dbx = 0;
+        if (dbx + dw > cw) dbx = cw - dw;
+        db.select('rect').attr('x', dbx).attr('width', dw);
+        db.select('text').attr('x', dbx + dw / 2).text(dt);
+
+        datasets.forEach((ds, i) => {
+            const bi = d3.bisector(d => d.date).left;
+            const idx = bi(ds.data, xd, 1);
+            const d0 = ds.data[idx - 1], d1 = ds.data[idx];
+            if (!d0) return;
+            const d = (d1 && (xd - d0.date > d1.date - xd)) ? d1 : d0;
+            const cx = x(d.date), cy = ds.yScale(d.value);
+            const ig = items[i];
+            ig.select('circle').attr('cx', cx).attr('cy', cy);
+            const txt = fmt(d.value, ds);
+            ig.select('text').text(txt);
+            const tw = txt.length * 7 + 12;
+            let lx = cx + 10;
+            if (lx + tw > cw) lx = cx - tw - 6;
+            ig.select('rect').attr('x', lx).attr('y', cy - 9).attr('width', tw);
+            ig.select('text').attr('x', lx + 6).attr('y', cy + 4);
+        });
+    }
+}
+
+/* ============================================================
+   CHART 1: LIQUIDITY POSITION (Stacked Bar + Net Line)
+   Line points aligned to bar centres.
+   ============================================================ */
+async function renderLiq() {
+    const el = document.getElementById('chart-liquidity');
+    const ids = ['bnr_deposit_facility_stock', 'bnr_deposits_taken_stock',
+        'bnr_reverse_repo_stock', 'bnr_repo_stock', 'bnr_credit_facility_stock'];
+    try {
+        const all = await Promise.all(ids.map(fetchS));
+        const byD = {};
+        ids.forEach((s, i) => all[i].forEach(d => {
+            const k = d3.timeFormat('%Y-%m-%d')(d.date);
+            if (!byD[k]) byD[k] = { date: d.date };
+            byD[k][s] = d.value;
+        }));
+        const data = Object.values(byD).sort((a, b) => a.date - b.date);
+        data.forEach(d => ids.forEach(s => { if (!d[s]) d[s] = 0; }));
+
+        const sK = ['bnr_deposit_facility_stock', 'bnr_deposits_taken_stock', 'bnr_reverse_repo_stock'];
+        const iK = ['bnr_repo_stock', 'bnr_credit_facility_stock'];
+        const bc = {
+            'bnr_deposit_facility_stock': C.purple, 'bnr_deposits_taken_stock': C.olive,
+            'bnr_reverse_repo_stock': C.forest, 'bnr_repo_stock': C.navy, 'bnr_credit_facility_stock': C.sky
+        };
+
+        data.forEach(d => {
+            d._sT = sK.reduce((a, k) => a + d[k], 0);
+            d._iT = iK.reduce((a, k) => a + d[k], 0);
+            d._net = d._sT - d._iT;
+        });
+
+        const m = { top: 8, right: 12, bottom: 36, left: 56 };
+        const w = el.clientWidth, cw = w - m.left - m.right, ch = 340;
+        el.innerHTML = '';
+        const svg = d3.select(el).append('svg').attr('class', 'chart-svg')
+            .attr('viewBox', `0 0 ${w} ${ch + m.top + m.bottom}`);
+        const g = svg.append('g').attr('transform', `translate(${m.left},${m.top})`);
+
+        const xB = d3.scaleBand().domain(data.map(d => d.date)).range([0, cw]).padding(0.05);
+        const xT = d3.scaleTime().domain(d3.extent(data, d => d.date)).range([0, cw]);
+        const maxS = d3.max(data, d => d._sT), maxI = d3.max(data, d => d._iT);
+        const y = d3.scaleLinear().domain([-maxI * 1.1, maxS * 1.1]).range([ch, 0]);
+
+        g.append('g').call(d3.axisLeft(y).ticks(6).tickSize(-cw).tickFormat(() => ''))
+            .selectAll('line').attr('stroke', C.grid);
+        g.selectAll('.domain').remove();
+        g.append('g').call(d3.axisLeft(y).ticks(6).tickSize(0).tickPadding(6)
+            .tickFormat(d => { const a = Math.abs(d); return (d < 0 ? '-' : '') + (a >= 1000 ? (a / 1000).toFixed(0) + 'bn' : a.toFixed(0)); }))
+            .selectAll('text').attr('fill', C.txt2).style('font-size', '11px');
+        g.selectAll('.domain').remove();
+        g.append('line').attr('x1', 0).attr('x2', cw).attr('y1', y(0)).attr('y2', y(0)).attr('stroke', C.border);
+
+        // Sterilisation bars (positive)
+        sK.forEach((key, ki) => {
+            g.selectAll(`.bs${ki}`).data(data).join('rect')
+                .attr('x', d => xB(d.date)).attr('width', xB.bandwidth())
+                .attr('y', d => { let c = 0; for (let j = 0; j <= ki; j++) c += d[sK[j]]; return y(c); })
+                .attr('height', d => Math.abs(y(0) - y(d[key])))
+                .attr('fill', bc[key]);
+        });
+        // Injection bars (negative)
+        iK.forEach((key, ki) => {
+            g.selectAll(`.bi${ki}`).data(data).join('rect')
+                .attr('x', d => xB(d.date)).attr('width', xB.bandwidth())
+                .attr('y', d => { let c = 0; for (let j = 0; j < ki; j++) c += d[iK[j]]; return y(0) + Math.abs(y(0) - y(c)); })
+                .attr('height', d => Math.abs(y(0) - y(d[key])))
+                .attr('fill', bc[key]);
+        });
+
+        // Net position line — ALIGNED TO BAR CENTRES
+        const barCentre = d => xB(d.date) + xB.bandwidth() / 2;
+        g.append('path').datum(data)
+            .attr('d', d3.line().x(barCentre).y(d => y(d._net)).curve(d3.curveMonotoneX))
+            .attr('fill', 'none').attr('stroke', C.alert).attr('stroke-width', 2);
+
+        watermark(g, cw, ch);
+        smartXAxis(g.append('g'), xT, ch, cw);
+
+        // Hover — snaps to nearest data point, shows net value
+        const hG = g.append('g').style('display', 'none');
+        hG.append('line').attr('class', 'hl').attr('y1', 0).attr('y2', ch)
+            .attr('stroke', C.txt1).attr('stroke-width', 0.5).attr('stroke-dasharray', '3,3');
+        const dbx = hG.append('g');
+        dbx.append('rect').attr('fill', C.charcoal).attr('rx', 3).attr('height', 20).attr('y', ch + 2);
+        dbx.append('text').attr('fill', '#F5F5F3').attr('text-anchor', 'middle').attr('y', ch + 16)
+            .style('font-size', '11px').style('font-family', 'DM Sans');
+        const nL = hG.append('g');
+        nL.append('circle').attr('r', 3.5).attr('fill', C.alert).attr('stroke', '#FFF').attr('stroke-width', 1.5);
+        nL.append('rect').attr('fill', C.alert).attr('opacity', 0.9).attr('rx', 3).attr('height', 18);
+        nL.append('text').attr('fill', '#FFF').style('font-size', '11px').style('font-weight', '500').style('font-family', 'DM Sans');
+
+        g.append('rect').attr('width', cw).attr('height', ch).attr('fill', 'none').attr('pointer-events', 'all')
+            .on('mouseenter', () => hG.style('display', null))
+            .on('mouseleave', () => hG.style('display', 'none'))
+            .on('touchstart', e => { hG.style('display', null); lmv(e); })
+            .on('touchmove', e => { e.preventDefault(); lmv(e); })
+            .on('touchend', () => hG.style('display', 'none'))
+            .on('mousemove', lmv);
+
+        function lmv(event) {
+            const [mx] = d3.pointer(event, g.node());
+            const xd = xT.invert(mx);
+            const bi = d3.bisector(d => d.date).left;
+            const idx = bi(data, xd, 1);
+            const d0 = data[idx - 1], d1 = data[idx];
+            if (!d0) return;
+            const d = (d1 && (xd - d0.date > d1.date - xd)) ? d1 : d0;
+            // Snap crosshair to bar centre
+            const cx = barCentre(d);
+
+            hG.select('.hl').attr('x1', cx).attr('x2', cx);
+            const dt = d3.timeFormat('%b %Y')(d.date);
+            const dw = dt.length * 7 + 12;
+            let dbxPos = cx - dw / 2;
+            if (dbxPos < 0) dbxPos = 0;
+            if (dbxPos + dw > cw) dbxPos = cw - dw;
+            dbx.select('rect').attr('x', dbxPos).attr('width', dw);
+            dbx.select('text').attr('x', dbxPos + dw / 2).text(dt);
+
+            const cy = y(d._net);
+            nL.select('circle').attr('cx', cx).attr('cy', cy);
+            const sign = d._net >= 0 ? '+' : '';
+            const nt = 'Net: ' + sign + (d._net / 1000).toFixed(1) + ' bn';
+            const nw = nt.length * 7 + 12;
+            let lx = cx + 10;
+            if (lx + nw > cw) lx = cx - nw - 6;
+            nL.select('rect').attr('x', lx).attr('y', cy - 9).attr('width', nw);
+            nL.select('text').attr('x', lx + 6).attr('y', cy + 4).text(nt);
+        }
+    } catch (err) {
+        el.innerHTML = '<div class="chart-loading">Failed to load data</div>';
+        console.error(err);
+    }
+}
+
+/* ============================================================
+   SHARED LINE CHART
+   ============================================================ */
+function lineChart(id, data, opts) {
+    const { color = C.navy, yFmt = v => v.toFixed(2), threshold = null, area = false } = opts;
+    const el = document.getElementById(id);
+    const m = { top: 8, right: 12, bottom: 36, left: 52 };
+    const w = el.clientWidth, cw = w - m.left - m.right, ch = 260;
+    el.innerHTML = '';
+    const svg = d3.select(el).append('svg').attr('class', 'chart-svg')
+        .attr('viewBox', `0 0 ${w} ${ch + m.top + m.bottom}`);
+    const g = svg.append('g').attr('transform', `translate(${m.left},${m.top})`);
+
+    const x = d3.scaleTime().domain(d3.extent(data, d => d.date)).range([0, cw]);
+    const yMin = d3.min(data, d => d.value), yMax = d3.max(data, d => d.value);
+    const yRange = yMax - yMin || yMax * 0.01; // fallback if flat
+    const yPad = yRange * 0.15; // 15% of data range as breathing room
+    const yE = [yMin - yPad, yMax + yPad];
+    if (threshold && yE[0] > threshold * 0.9) yE[0] = threshold * 0.9;
+    const y = d3.scaleLinear().domain(yE).range([ch, 0]).nice();
+
+    // Grid
+    g.append('g').call(d3.axisLeft(y).ticks(5).tickSize(-cw).tickFormat(() => ''))
+        .selectAll('line').attr('stroke', C.grid);
+    g.selectAll('.domain').remove();
+
+    // Y labels — use the provided formatter, deduplicate
+    const yTicks = y.ticks(5);
+    const yLabels = yTicks.map(t => yFmt(t));
+    const uniqueY = [];
+    const seenY = new Set();
+    yTicks.forEach((t, i) => {
+        if (!seenY.has(yLabels[i])) { uniqueY.push(t); seenY.add(yLabels[i]); }
+    });
+    g.append('g').call(d3.axisLeft(y).tickValues(uniqueY).tickSize(0).tickPadding(6).tickFormat(d => yFmt(d)))
+        .selectAll('text').attr('fill', C.txt2).style('font-size', '11px');
+    g.selectAll('.domain').remove();
+
+    if (threshold) g.append('line').attr('x1', 0).attr('x2', cw)
+        .attr('y1', y(threshold)).attr('y2', y(threshold))
+        .attr('stroke', C.alert).attr('stroke-width', 1.5).attr('stroke-dasharray', '6,4');
+    if (area) g.append('path').datum(data)
+        .attr('d', d3.area().x(d => x(d.date)).y0(ch).y1(d => y(d.value)).curve(d3.curveMonotoneX))
+        .attr('fill', color).attr('opacity', 0.06);
+    g.append('path').datum(data)
+        .attr('d', d3.line().x(d => x(d.date)).y(d => y(d.value)).curve(d3.curveMonotoneX))
+        .attr('fill', 'none').attr('stroke', color).attr('stroke-width', 2);
+
+    watermark(g, cw, ch);
+    smartXAxis(g.append('g'), x, ch, cw);
+    addHover(g, x, ch, cw, [{ data, color, yScale: y }], v => yFmt(v));
+}
+
+/* ============ CHART 2: LCR ============ */
+async function renderLCR() {
+    try {
+        lineChart('chart-lcr', await fetchS('bnr_lcr'),
+            { color: C.navy, threshold: 100, area: true, yFmt: v => v.toFixed(0) + '%' });
+    } catch (e) { document.getElementById('chart-lcr').innerHTML = '<div class="chart-loading">Failed</div>'; }
+}
+
+/* ============ CHART 3: NPL ============ */
+async function renderNPL() {
+    try {
+        lineChart('chart-npl', await fetchS('bnr_npl_ratio_eba'),
+            { color: C.navy, area: true, yFmt: v => v.toFixed(1) + '%' });
+    } catch (e) { document.getElementById('chart-npl').innerHTML = '<div class="chart-loading">Failed</div>'; }
+}
+
+/* ============ CHART 4: FX ============ */
+let fxAll = null;
+async function renderFX(range) {
+    try {
+        if (!fxAll) fxAll = await fetchS('bnr_eurron_daily');
+        let d = fxAll;
+        if (range && range !== 'ALL') {
+            const last = d[d.length - 1].date;
+            let s;
+            if (range === '3M') s = d3.timeMonth.offset(last, -3);
+            else if (range === '1Y') s = d3.timeYear.offset(last, -1);
+            else if (range === '5Y') s = d3.timeYear.offset(last, -5);
+            else if (range === '10Y') s = d3.timeYear.offset(last, -10);
+            d = d.filter(p => p.date >= s);
+        }
+        lineChart('chart-fx', d, { color: C.navy, area: true, yFmt: v => v.toFixed(4) });
+    } catch (e) { document.getElementById('chart-fx').innerHTML = '<div class="chart-loading">Failed</div>'; }
+}
+
+document.querySelectorAll('#fx-range-buttons .range-btn').forEach(b => {
+    b.addEventListener('click', function () {
+        document.querySelectorAll('#fx-range-buttons .range-btn').forEach(x => x.classList.remove('active'));
+        this.classList.add('active');
+        renderFX(this.dataset.range);
+    });
+});
+
+renderLiq(); renderLCR(); renderNPL(); renderFX('ALL');
+
+let rT;
+window.addEventListener('resize', () => {
+    clearTimeout(rT);
+    rT = setTimeout(() => {
+        renderLiq(); renderLCR(); renderNPL();
+        const a = document.querySelector('#fx-range-buttons .range-btn.active');
+        renderFX(a ? a.dataset.range : 'ALL');
+    }, 250);
+});
+</script>
 </body>
 </html>
