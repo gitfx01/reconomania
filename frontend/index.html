@@ -286,10 +286,19 @@ function addHover(g, x, ch, cw, datasets, fmt) {
         .attr('fill', 'none').attr('pointer-events', 'all')
         .on('mouseenter', () => hG.style('display', null))
         .on('mouseleave', () => hG.style('display', 'none'))
-        .on('touchstart', e => { hG.style('display', null); mv(e); })
+        .on('touchstart', e => {
+            e.preventDefault();
+            // Hide any other active tooltip first
+            document.querySelectorAll('.reco-hover-group').forEach(el => el.style.display = 'none');
+            hG.style('display', null);
+            mv(e);
+        })
         .on('touchmove', e => { e.preventDefault(); mv(e); })
-        .on('touchend', () => hG.style('display', 'none'))
+        // No touchend hide — tooltip stays until user taps elsewhere
         .on('mousemove', mv);
+
+    // Mark this hover group so the global dismiss can find it
+    hG.node().classList.add('reco-hover-group');
 
     function mv(event) {
         const [mx] = d3.pointer(event, g.node());
@@ -423,10 +432,16 @@ async function renderLiq() {
         g.append('rect').attr('width', cw).attr('height', ch).attr('fill', 'none').attr('pointer-events', 'all')
             .on('mouseenter', () => hG.style('display', null))
             .on('mouseleave', () => hG.style('display', 'none'))
-            .on('touchstart', e => { hG.style('display', null); lmv(e); })
+            .on('touchstart', e => {
+                e.preventDefault();
+                document.querySelectorAll('.reco-hover-group').forEach(el => el.style.display = 'none');
+                hG.style('display', null);
+                lmv(e);
+            })
             .on('touchmove', e => { e.preventDefault(); lmv(e); })
-            .on('touchend', () => hG.style('display', 'none'))
             .on('mousemove', lmv);
+
+        hG.node().classList.add('reco-hover-group');
 
         function lmv(event) {
             const [mx] = d3.pointer(event, g.node());
@@ -571,6 +586,13 @@ window.addEventListener('resize', () => {
         renderFX(a ? a.dataset.range : 'ALL');
     }, 250);
 });
+
+// Global: tap outside any chart hides all tooltips (mobile)
+document.addEventListener('touchstart', function(e) {
+    // If the tap is inside a chart container, the chart's own handler will manage it
+    if (e.target.closest('.chart-container')) return;
+    document.querySelectorAll('.reco-hover-group').forEach(el => el.style.display = 'none');
+}, { passive: true });
 </script>
 </body>
 </html>
