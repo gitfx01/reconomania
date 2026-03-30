@@ -182,6 +182,23 @@
     </section>
 
     <section class="chart-section">
+        <h2 class="chart-title">Private sector loan growth</h2>
+        <p class="chart-subtitle">Year-on-year growth rate — households, corporates & NBFI, percent</p>
+        <div class="chart-container">
+            <div class="range-buttons" id="loans-range-buttons">
+                <button class="range-btn" data-range="3Y">3Y</button>
+                <button class="range-btn" data-range="7Y">7Y</button>
+                <button class="range-btn active" data-range="ALL">ALL</button>
+            </div>
+            <div class="chart-legend">
+                <span class="legend-item"><span class="legend-swatch" style="background:#0F3B5C"></span>Y-o-Y growth</span>
+            </div>
+            <div id="chart-loans"><div class="chart-loading">Loading data…</div></div>
+            <div class="chart-source">Source: National Bank of Romania</div>
+        </div>
+    </section>
+
+    <section class="chart-section">
         <h2 class="chart-title">EUR/RON reference exchange rate</h2>
         <p class="chart-subtitle">NBR daily reference rate — RON per 1 EUR</p>
         <div class="chart-container">
@@ -640,7 +657,18 @@ async function renderNPL(range) {
     } catch (e) { document.getElementById('chart-npl').innerHTML = '<div class="chart-loading">Failed</div>'; }
 }
 
-/* ============ CHART 4: FX ============ */
+/* ============ CHART 4: LOAN GROWTH ============ */
+let loansAll = null;
+async function renderLoans(range) {
+    try {
+        if (!loansAll) loansAll = await fetchS('bnr_loans_private_yoy');
+        const d = filterByRange(loansAll.data, range);
+        lineChart('chart-loans', d,
+            { color: C.navy, area: true, yFmt: v => v.toFixed(2) + '%', frequency: loansAll.frequency });
+    } catch (e) { document.getElementById('chart-loans').innerHTML = '<div class="chart-loading">Failed</div>'; }
+}
+
+/* ============ CHART 5: FX ============ */
 let fxAll = null;
 async function renderFX(range) {
     try {
@@ -669,10 +697,11 @@ function getActiveRange(buttonGroupId) {
 wireRangeButtons('liq-range-buttons', renderLiq);
 wireRangeButtons('lcr-range-buttons', renderLCR);
 wireRangeButtons('npl-range-buttons', renderNPL);
+wireRangeButtons('loans-range-buttons', renderLoans);
 wireRangeButtons('fx-range-buttons', renderFX);
 
 /* ============ INIT ============ */
-renderLiq('ALL'); renderLCR('ALL'); renderNPL('ALL'); renderFX('ALL');
+renderLiq('ALL'); renderLCR('ALL'); renderNPL('ALL'); renderLoans('ALL'); renderFX('ALL');
 
 let rT;
 window.addEventListener('resize', () => {
@@ -681,6 +710,7 @@ window.addEventListener('resize', () => {
         renderLiq(getActiveRange('liq-range-buttons'));
         renderLCR(getActiveRange('lcr-range-buttons'));
         renderNPL(getActiveRange('npl-range-buttons'));
+        renderLoans(getActiveRange('loans-range-buttons'));
         renderFX(getActiveRange('fx-range-buttons'));
     }, 250);
 });
