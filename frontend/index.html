@@ -301,7 +301,7 @@ function addHover(g, x, ch, cw, datasets, fmt) {
     hG.node().classList.add('reco-hover-group');
 
     function mv(event) {
-        const [mx] = d3.pointer(event, g.node());
+        const [mx] = getPointer(event, g.node());
         const xd = x.invert(mx);
         hG.select('.hl').attr('x1', mx).attr('x2', mx);
 
@@ -444,7 +444,7 @@ async function renderLiq() {
         hG.node().classList.add('reco-hover-group');
 
         function lmv(event) {
-            const [mx] = d3.pointer(event, g.node());
+            const [mx] = getPointer(event, g.node());
             const xd = xT.invert(mx);
             const bi = d3.bisector(d => d.date).left;
             const idx = bi(data, xd, 1);
@@ -586,6 +586,30 @@ window.addEventListener('resize', () => {
         renderFX(a ? a.dataset.range : 'ALL');
     }, 250);
 });
+
+// Touch-aware pointer: gets correct coordinates for both mouse and touch events
+function getPointer(event, node) {
+    let clientX, clientY;
+    if (event.touches && event.touches.length > 0) {
+        clientX = event.touches[0].clientX;
+        clientY = event.touches[0].clientY;
+    } else if (event.changedTouches && event.changedTouches.length > 0) {
+        clientX = event.changedTouches[0].clientX;
+        clientY = event.changedTouches[0].clientY;
+    } else {
+        return d3.pointer(event, node);
+    }
+    const svg = node.ownerSVGElement || node;
+    const ctm = node.getScreenCTM();
+    if (ctm) {
+        const pt = svg.createSVGPoint();
+        pt.x = clientX;
+        pt.y = clientY;
+        const svgPt = pt.matrixTransform(ctm.inverse());
+        return [svgPt.x, svgPt.y];
+    }
+    return d3.pointer(event, node);
+}
 
 // Global: tap outside any chart hides all tooltips (mobile)
 document.addEventListener('touchstart', function(e) {
