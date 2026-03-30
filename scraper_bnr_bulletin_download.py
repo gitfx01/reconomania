@@ -10,13 +10,15 @@ How it works:
   - Each page contains 10 bulletins, newest first
   - We page through until we pass 2019, then stop
 
-Two modes:
-  --discover    Just list the PDF URLs (no downloads)
-  --download    List AND download the PDFs to archive/bnr_monthly_bulletin/
+Three modes:
+  --discover    List all PDF URLs from 2019+ (no downloads)
+  --download    Discover all + download (for initial backfill)
+  --latest      Check page 1 only + download new (for daily automated runs)
 
 Usage:
   python scraper_bnr_bulletin_download.py --discover
   python scraper_bnr_bulletin_download.py --download
+  python scraper_bnr_bulletin_download.py --latest
 """
 
 import requests
@@ -233,6 +235,28 @@ def download_bulletins(bulletins):
     return downloaded, skipped, failed
 
 
+def discover_latest():
+    """
+    Check only page 1 of the bulletin listing for new bulletins.
+    Used for daily automated checks — no need to page through the
+    entire archive every time.
+    """
+    print("Fetching page 1 (latest check)...")
+    bulletins, _ = fetch_page_1()
+    print(f"  Found {len(bulletins)} bulletins on page 1")
+
+    filtered = []
+    for b in bulletins:
+        year, month = extract_year_month(b["title"])
+        if year and year >= EARLIEST_YEAR:
+            b["year"] = year
+            b["month"] = month
+            b["filename"] = make_filename(b["title"])
+            filtered.append(b)
+
+    return filtered
+
+
 # === Main ===
 if __name__ == "__main__":
     # Parse command line
@@ -242,31 +266,37 @@ if __name__ == "__main__":
             mode = "download"
         elif sys.argv[1] == "--discover":
             mode = "discover"
+        elif sys.argv[1] == "--latest":
+            mode = "latest"
         else:
             print(f"Unknown argument: {sys.argv[1]}")
-            print("Usage: python scraper_bnr_bulletin_download.py [--discover|--download]")
+            print("Usage: python scraper_bnr_bulletin_download.py [--discover|--download|--latest]")
             exit(1)
     
     print(f"Mode: {mode.upper()}")
-    print(f"Scope: {EARLIEST_YEAR} onwards")
-    print(f"Delay between pages: {DELAY_BETWEEN_PAGES}s")
+    if mode != "latest":
+        print(f"Scope: {EARLIEST_YEAR} onwards")
+        print(f"Delay between pages: {DELAY_BETWEEN_PAGES}s")
     print(f"Delay between downloads: {DELAY_BETWEEN_DOWNLOADS}s")
     print()
     
-    # Step 1: Discover all bulletin URLs
-    bulletins = discover_all_bulletins()
+    # Step 1: Discover bulletin URLs
+    if mode == "latest":
+        bulletins = discover_latest()
+    else:
+        bulletins = discover_all_bulletins()
     
     # Report
     print()
     print("=" * 70)
-    print(f"DISCOVERY COMPLETE: {len(bulletins)} bulletins from {EARLIEST_YEAR}+")
+    print(f"DISCOVERY COMPLETE: {len(bulletins)} bulletins")
     print("=" * 70)
     for b in bulletins:
         print(f"  {b['title']:40s} → {b['filename']}")
     print()
     
     # Step 2: Download (if requested)
-    if mode == "download":
+    if mode in ("download", "latest"):
         print("=" * 70)
         print(f"DOWNLOADING to {ARCHIVE_DIR}/")
         print("=" * 70)

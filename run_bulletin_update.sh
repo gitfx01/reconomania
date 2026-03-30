@@ -51,8 +51,8 @@ echo "========================================"
 BEFORE=$(ls -1 "$ARCHIVE_DIR"/*.pdf 2>/dev/null | wc -l)
 echo "PDFs before: $BEFORE"
 
-# Run download (discovers listing, downloads any new bulletins)
-python "$PROJECT_DIR/scraper_bnr_bulletin_download.py" --download
+# Run download (checks page 1 only, downloads any new bulletins)
+python "$PROJECT_DIR/scraper_bnr_bulletin_download.py" --latest
 
 # Count files after download
 AFTER=$(ls -1 "$ARCHIVE_DIR"/*.pdf 2>/dev/null | wc -l)
