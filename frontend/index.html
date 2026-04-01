@@ -115,6 +115,11 @@
         .selector-btn.active { background: #0F3B5C; border-color: #0F3B5C; color: #FFF; }
         .selector-btn.disabled { opacity: 0.35; pointer-events: none; }
         .selector-sub { margin-left: 2px; border-left: 2px solid #E8E8E5; padding-left: 6px; display: inline-flex; gap: 6px; }
+        .selector-label-sub {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 11px; font-weight: 500; color: #ABABAB;
+            margin-right: 6px; white-space: nowrap;
+        }
         .toggle-btn {
             font-family: 'DM Sans', sans-serif;
             font-size: 12px; font-weight: 500;
@@ -218,27 +223,36 @@
         <p class="chart-subtitle">Year-on-year growth rate — NBR loan balances by sector and currency</p>
         <div class="chart-container">
             <div class="selector-row">
-                <span class="selector-label">Currency</span>
+                <span class="selector-label" style="min-width:72px">Currency</span>
                 <button class="selector-btn active" data-group="currency" data-val="all">All</button>
                 <button class="selector-btn" data-group="currency" data-val="ron">RON</button>
                 <button class="selector-btn" data-group="currency" data-val="fcy">FCY</button>
             </div>
             <div class="selector-row">
-                <span class="selector-label">Segment</span>
+                <span class="selector-label" style="min-width:72px">Segment</span>
                 <button class="selector-btn active" data-group="segment" data-val="total">Total private</button>
-                <button class="selector-btn" data-group="segment" data-val="retail">Retail</button>
+                <button class="selector-btn" data-group="segment" data-val="public">Public sector</button>
+            </div>
+            <div class="selector-row" style="padding-left:80px">
+                <span class="selector-label-sub">Retail</span>
+                <button class="selector-btn" data-group="segment" data-val="retail">All retail</button>
                 <span class="selector-sub">
                     <button class="selector-btn" data-group="segment" data-val="mortgages">Mortgages</button>
                     <button class="selector-btn" data-group="segment" data-val="consumer">Consumer</button>
                 </span>
-                <button class="selector-btn" data-group="segment" data-val="nfc">Non-financials</button>
+            </div>
+            <div class="selector-row" style="padding-left:80px">
+                <span class="selector-label-sub">Non-retail</span>
+                <button class="selector-btn" data-group="segment" data-val="nonretail">All non-retail</button>
                 <span class="selector-sub">
-                    <button class="selector-btn" data-group="segment" data-val="lt1y">&lt; 1Y</button>
-                    <button class="selector-btn" data-group="segment" data-val="1to5y">1–5Y</button>
-                    <button class="selector-btn" data-group="segment" data-val="gt5y">&gt; 5Y</button>
+                    <button class="selector-btn" data-group="segment" data-val="nfc">Non-financials</button>
+                    <span class="selector-sub">
+                        <button class="selector-btn" data-group="segment" data-val="lt1y">&lt; 1Y</button>
+                        <button class="selector-btn" data-group="segment" data-val="1to5y">1–5Y</button>
+                        <button class="selector-btn" data-group="segment" data-val="gt5y">&gt; 5Y</button>
+                    </span>
+                    <button class="selector-btn" data-group="segment" data-val="fi">Financials</button>
                 </span>
-                <button class="selector-btn" data-group="segment" data-val="fi">Financials</button>
-                <button class="selector-btn" data-group="segment" data-val="public">Public sector</button>
             </div>
             <div class="selector-row">
                 <button class="toggle-btn" id="lcy-toggle">Display share of LCY</button>
@@ -722,6 +736,7 @@ const LOAN_RULES = {
     all: {
         total: ['IFMCL_G', 'IFMCL_S', 'IFMCL_I'],
         retail: ['IFMCL_G'], mortgages: ['IFMCL_GL'], consumer: ['IFMCL_GC'],
+        nonretail: ['IFMCL_S', 'IFMCL_I'],
         nfc: ['IFMCL_S'],
         lt1y: ['IFMCL_SL1A', 'IFMCL_SE1A', 'IFMCL_SX1A'],
         '1to5y': ['IFMCL_SL1A5', 'IFMCL_SE1A5', 'IFMCL_SX1A5'],
