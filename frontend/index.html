@@ -93,6 +93,38 @@
         }
         .range-btn:hover { border-color: #0F3B5C; color: #0F3B5C; }
         .range-btn.active { background: #0F3B5C; border-color: #0F3B5C; color: #FFF; }
+        .selector-row {
+            display: flex; align-items: center; gap: 6px;
+            margin-bottom: 8px; flex-wrap: wrap;
+        }
+        .selector-label {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 11px; font-weight: 600; color: #6B6B6B;
+            text-transform: uppercase; letter-spacing: 0.05em;
+            margin-right: 4px; white-space: nowrap;
+        }
+        .selector-btn {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 12px; font-weight: 500;
+            padding: 3px 10px;
+            border: 1px solid #D0D0D0; border-radius: 4px;
+            background: transparent; color: #6B6B6B;
+            cursor: pointer; transition: all 0.15s;
+        }
+        .selector-btn:hover { border-color: #0F3B5C; color: #0F3B5C; }
+        .selector-btn.active { background: #0F3B5C; border-color: #0F3B5C; color: #FFF; }
+        .selector-btn.disabled { opacity: 0.35; pointer-events: none; }
+        .selector-sub { margin-left: 2px; border-left: 2px solid #E8E8E5; padding-left: 6px; display: inline-flex; gap: 6px; }
+        .toggle-btn {
+            font-family: 'DM Sans', sans-serif;
+            font-size: 12px; font-weight: 500;
+            padding: 3px 10px;
+            border: 1px solid #D0D0D0; border-radius: 4px;
+            background: transparent; color: #6B6B6B;
+            cursor: pointer; transition: all 0.15s;
+        }
+        .toggle-btn:hover { border-color: #2D8C5A; color: #2D8C5A; }
+        .toggle-btn.active { background: #2D8C5A; border-color: #2D8C5A; color: #FFF; }
         .chart-svg { width: 100%; display: block; overflow: visible; }
         .footer {
             text-align: center; padding: 24px;
@@ -182,15 +214,41 @@
     </section>
 
     <section class="chart-section">
-        <h2 class="chart-title">Private sector loan growth</h2>
-        <p class="chart-subtitle">Year-on-year growth rate — households, corporates & NBFI, percent</p>
+        <h2 class="chart-title">Loan growth explorer</h2>
+        <p class="chart-subtitle">Year-on-year growth rate — NBR loan balances by sector and currency</p>
         <div class="chart-container">
-            <div class="range-buttons" id="loans-range-buttons">
-                <button class="range-btn" data-range="3Y">3Y</button>
-                <button class="range-btn" data-range="7Y">7Y</button>
-                <button class="range-btn active" data-range="ALL">ALL</button>
+            <div class="selector-row">
+                <span class="selector-label">Currency</span>
+                <button class="selector-btn active" data-group="currency" data-val="all">All</button>
+                <button class="selector-btn" data-group="currency" data-val="ron">RON</button>
+                <button class="selector-btn" data-group="currency" data-val="fcy">FCY</button>
             </div>
-            <div class="chart-legend">
+            <div class="selector-row">
+                <span class="selector-label">Segment</span>
+                <button class="selector-btn active" data-group="segment" data-val="total">Total private</button>
+                <button class="selector-btn" data-group="segment" data-val="retail">Retail</button>
+                <span class="selector-sub">
+                    <button class="selector-btn" data-group="segment" data-val="mortgages">Mortgages</button>
+                    <button class="selector-btn" data-group="segment" data-val="consumer">Consumer</button>
+                </span>
+                <button class="selector-btn" data-group="segment" data-val="nfc">Non-financials</button>
+                <span class="selector-sub">
+                    <button class="selector-btn" data-group="segment" data-val="lt1y">&lt; 1Y</button>
+                    <button class="selector-btn" data-group="segment" data-val="1to5y">1–5Y</button>
+                    <button class="selector-btn" data-group="segment" data-val="gt5y">&gt; 5Y</button>
+                </span>
+                <button class="selector-btn" data-group="segment" data-val="fi">Financials</button>
+                <button class="selector-btn" data-group="segment" data-val="public">Public sector</button>
+            </div>
+            <div class="selector-row">
+                <button class="toggle-btn" id="lcy-toggle">Display share of LCY</button>
+                <div class="range-buttons" id="loans-range-buttons" style="margin-left:auto;margin-bottom:0">
+                    <button class="range-btn" data-range="3Y">3Y</button>
+                    <button class="range-btn" data-range="7Y">7Y</button>
+                    <button class="range-btn active" data-range="ALL">ALL</button>
+                </div>
+            </div>
+            <div class="chart-legend" id="loans-legend">
                 <span class="legend-item"><span class="legend-swatch" style="background:#0F3B5C"></span>Y-o-Y growth</span>
             </div>
             <div id="chart-loans"><div class="chart-loading">Loading data…</div></div>
@@ -657,16 +715,335 @@ async function renderNPL(range) {
     } catch (e) { document.getElementById('chart-npl').innerHTML = '<div class="chart-loading">Failed</div>'; }
 }
 
-/* ============ CHART 4: LOAN GROWTH ============ */
-let loansAll = null;
-async function renderLoans(range) {
-    try {
-        if (!loansAll) loansAll = await fetchS('bnr_loans_private_yoy');
-        const d = filterByRange(loansAll.data, range);
-        lineChart('chart-loans', d,
-            { color: C.navy, area: true, yFmt: v => v.toFixed(2) + '%', frequency: loansAll.frequency });
-    } catch (e) { document.getElementById('chart-loans').innerHTML = '<div class="chart-loading">Failed</div>'; }
+/* ============ CHART 4: LOAN GROWTH EXPLORER ============ */
+
+// Combination rules: currency → segment → list of XML codes to sum
+const LOAN_RULES = {
+    all: {
+        total: ['IFMCL_G', 'IFMCL_S', 'IFMCL_I'],
+        retail: ['IFMCL_G'], mortgages: ['IFMCL_GL'], consumer: ['IFMCL_GC'],
+        nfc: ['IFMCL_S'],
+        lt1y: ['IFMCL_SL1A', 'IFMCL_SE1A', 'IFMCL_SX1A'],
+        '1to5y': ['IFMCL_SL1A5', 'IFMCL_SE1A5', 'IFMCL_SX1A5'],
+        gt5y: ['IFMCL_SLX5A', 'IFMCL_SEX5A', 'IFMCL_SXX5A'],
+        fi: ['IFMCL_I'], public: ['IFMCL_AP'],
+    },
+    ron: {
+        total: ['IFMCL_GR', 'IFMCL_SL'],
+        retail: ['IFMCL_GR'], mortgages: ['IFMCL_GLL'], consumer: ['IFMCL_GCL'],
+        nfc: ['IFMCL_SL'],
+        lt1y: ['IFMCL_SL1A'], '1to5y': ['IFMCL_SL1A5'], gt5y: ['IFMCL_SLX5A'],
+    },
+    fcy: {
+        total: ['IFMCL_GE', 'IFMCL_SE', 'IFMCL_GO', 'IFMCL_SX'],
+        retail: ['IFMCL_GE', 'IFMCL_GO'],
+        mortgages: ['IFMCL_GLE', 'IFMCL_GLX'], consumer: ['IFMCL_GCE', 'IFMCL_GCX'],
+        nfc: ['IFMCL_SE', 'IFMCL_SX'],
+        lt1y: ['IFMCL_SE1A', 'IFMCL_SX1A'],
+        '1to5y': ['IFMCL_SE1A5', 'IFMCL_SX1A5'],
+        gt5y: ['IFMCL_SEX5A', 'IFMCL_SXX5A'],
+    },
+};
+
+// LCY share rules: RON codes / ALL codes for each segment
+// Special: "total" excludes financials (no currency split for IFMCL_I)
+const LCY_RULES = {
+    total:   { ron: ['IFMCL_GR', 'IFMCL_SL'], all: ['IFMCL_G', 'IFMCL_S'] },
+    retail:  { ron: ['IFMCL_GR'], all: ['IFMCL_G'] },
+    mortgages: { ron: ['IFMCL_GLL'], all: ['IFMCL_GL'] },
+    consumer: { ron: ['IFMCL_GCL'], all: ['IFMCL_GC'] },
+    nfc:     { ron: ['IFMCL_SL'], all: ['IFMCL_S'] },
+    lt1y:    { ron: ['IFMCL_SL1A'], all: ['IFMCL_SL1A', 'IFMCL_SE1A', 'IFMCL_SX1A'] },
+    '1to5y': { ron: ['IFMCL_SL1A5'], all: ['IFMCL_SL1A5', 'IFMCL_SE1A5', 'IFMCL_SX1A5'] },
+    gt5y:    { ron: ['IFMCL_SLX5A'], all: ['IFMCL_SLX5A', 'IFMCL_SEX5A', 'IFMCL_SXX5A'] },
+};
+
+// All unique codes needed
+const ALL_LOAN_CODES = [...new Set(
+    Object.values(LOAN_RULES).flatMap(segs => Object.values(segs).flat())
+)].map(c => 'bnr_' + c.toLowerCase());
+
+let loanRawData = null; // cached {series_id: {dateStr: value}}
+
+async function loadLoanData() {
+    if (loanRawData) return;
+    const ids = ALL_LOAN_CODES.join(',');
+    const r = await fetch(`/api/series/batch?ids=${ids}`);
+    const j = await r.json();
+    loanRawData = {};
+    for (const [sid, points] of Object.entries(j.series)) {
+        const byDate = {};
+        points.forEach(p => { byDate[p.date] = p.value; });
+        loanRawData[sid] = byDate;
+    }
 }
+
+function sumCodes(codes, dateStr) {
+    let total = 0;
+    for (const code of codes) {
+        const sid = 'bnr_' + code.toLowerCase();
+        const v = loanRawData[sid] ? loanRawData[sid][dateStr] : undefined;
+        if (v === undefined) return null; // missing data
+        total += v;
+    }
+    return total;
+}
+
+function computeYoY(codes) {
+    // Get all dates from the first code
+    const sid0 = 'bnr_' + codes[0].toLowerCase();
+    const dates = Object.keys(loanRawData[sid0] || {}).sort();
+    const result = [];
+    for (const dateStr of dates) {
+        const d = new Date(dateStr);
+        // Find same month last year
+        const prevYear = new Date(d);
+        prevYear.setFullYear(prevYear.getFullYear() - 1);
+        const prevStr = prevYear.toISOString().slice(0, 10);
+        const curr = sumCodes(codes, dateStr);
+        const prev = sumCodes(codes, prevStr);
+        if (curr !== null && prev !== null && prev !== 0) {
+            result.push({ date: d, value: (curr / prev - 1) * 100 });
+        }
+    }
+    return result;
+}
+
+function computeLCYShare(segment) {
+    const rule = LCY_RULES[segment];
+    if (!rule) return [];
+    const ronCodes = rule.ron;
+    const allCodes = rule.all;
+    const sid0 = 'bnr_' + allCodes[0].toLowerCase();
+    const dates = Object.keys(loanRawData[sid0] || {}).sort();
+    const result = [];
+    for (const dateStr of dates) {
+        const ronVal = sumCodes(ronCodes, dateStr);
+        const allVal = sumCodes(allCodes, dateStr);
+        if (ronVal !== null && allVal !== null && allVal !== 0) {
+            result.push({ date: new Date(dateStr), value: (ronVal / allVal) * 100 });
+        }
+    }
+    return result;
+}
+
+// State
+let loanCurrency = 'all';
+let loanSegment = 'total';
+let loanShowLCY = false;
+
+function getLoansRange() {
+    const a = document.querySelector('#loans-range-buttons .range-btn.active');
+    return a ? a.dataset.range : 'ALL';
+}
+
+function updateSelectorState() {
+    // --- Segment buttons: disable those not available for current currency ---
+    const availableSegments = Object.keys(LOAN_RULES[loanCurrency]);
+    document.querySelectorAll('[data-group="segment"]').forEach(btn => {
+        const val = btn.dataset.val;
+        if (availableSegments.includes(val)) {
+            btn.classList.remove('disabled');
+        } else {
+            btn.classList.add('disabled');
+            if (val === loanSegment) {
+                loanSegment = 'total';
+                document.querySelectorAll('[data-group="segment"]').forEach(b => b.classList.remove('active'));
+                document.querySelector('[data-group="segment"][data-val="total"]').classList.add('active');
+            }
+        }
+    });
+
+    // --- Currency buttons: disable those that don't have the current segment ---
+    document.querySelectorAll('[data-group="currency"]').forEach(btn => {
+        const cur = btn.dataset.val;
+        const segsForCur = Object.keys(LOAN_RULES[cur]);
+        if (segsForCur.includes(loanSegment)) {
+            btn.classList.remove('disabled');
+        } else {
+            btn.classList.add('disabled');
+            // If the active currency just got disabled, reset to 'all'
+            if (cur === loanCurrency) {
+                loanCurrency = 'all';
+                document.querySelectorAll('[data-group="currency"]').forEach(b => b.classList.remove('active'));
+                document.querySelector('[data-group="currency"][data-val="all"]').classList.add('active');
+            }
+        }
+    });
+
+    // --- LCY toggle: available for any segment that has a LCY rule ---
+    // Works for ALL, RON, and FCY — always shows RON / Total ratio
+    const lcyBtn = document.getElementById('lcy-toggle');
+    if (!LCY_RULES[loanSegment]) {
+        lcyBtn.classList.add('disabled');
+        lcyBtn.style.opacity = '0.35';
+        lcyBtn.style.pointerEvents = 'none';
+        loanShowLCY = false;
+        lcyBtn.classList.remove('active');
+    } else {
+        lcyBtn.classList.remove('disabled');
+        lcyBtn.style.opacity = '';
+        lcyBtn.style.pointerEvents = '';
+    }
+}
+
+function updateLoansLegend() {
+    const leg = document.getElementById('loans-legend');
+    let html = '<span class="legend-item"><span class="legend-swatch" style="background:#0F3B5C"></span>Y-o-Y growth</span>';
+    if (loanShowLCY) {
+        html += '<span class="legend-item"><span class="legend-line" style="background:#2D8C5A"></span>LCY share (RHS)</span>';
+    }
+    leg.innerHTML = html;
+}
+
+async function renderLoans() {
+    const el = document.getElementById('chart-loans');
+    try {
+        await loadLoanData();
+
+        const codes = LOAN_RULES[loanCurrency][loanSegment];
+        if (!codes) { el.innerHTML = '<div class="chart-loading">Not available</div>'; return; }
+
+        let yoyData = computeYoY(codes);
+        let lcyData = loanShowLCY ? computeLCYShare(loanSegment) : null;
+
+        // Apply range filter
+        const range = getLoansRange();
+        yoyData = filterByRange(yoyData, range);
+        if (lcyData) {
+            lcyData = filterByRange(lcyData, range);
+            // Clip LCY to the Y-o-Y date range (LCY starts earlier since
+            // it doesn't need 12 months of history, but it shouldn't
+            // extend beyond the main series on the chart)
+            if (yoyData.length > 0) {
+                const yoyStart = yoyData[0].date;
+                lcyData = lcyData.filter(d => d.date >= yoyStart);
+            }
+        }
+
+        if (yoyData.length === 0) { el.innerHTML = '<div class="chart-loading">No data</div>'; return; }
+
+        updateLoansLegend();
+
+        // --- Draw chart ---
+        const m = { top: 8, right: lcyData ? 52 : 12, bottom: 36, left: 52 };
+        const w = el.clientWidth, cw = w - m.left - m.right, ch = 280;
+        el.innerHTML = '';
+        const svg = d3.select(el).append('svg').attr('class', 'chart-svg')
+            .attr('viewBox', `0 0 ${w} ${ch + m.top + m.bottom}`);
+        const g = svg.append('g').attr('transform', `translate(${m.left},${m.top})`);
+
+        const x = d3.scaleTime().domain(d3.extent(yoyData, d => d.date)).range([0, cw]);
+
+        // Y-axis left: Y-o-Y growth
+        const yMin = d3.min(yoyData, d => d.value), yMax = d3.max(yoyData, d => d.value);
+        const yRange = yMax - yMin || 1;
+        const yPad = yRange * 0.15;
+        const yL = d3.scaleLinear().domain([yMin - yPad, yMax + yPad]).range([ch, 0]).nice();
+
+        // Grid
+        g.append('g').call(d3.axisLeft(yL).ticks(5).tickSize(-cw).tickFormat(() => ''))
+            .selectAll('line').attr('stroke', C.grid);
+        g.selectAll('.domain').remove();
+
+        // Y labels left
+        const yTicks = yL.ticks(5);
+        const fmt = v => v.toFixed(1) + '%';
+        const seen = new Set();
+        const uniq = yTicks.filter(t => { const s = fmt(t); if (seen.has(s)) return false; seen.add(s); return true; });
+        g.append('g').call(d3.axisLeft(yL).tickValues(uniq).tickSize(0).tickPadding(6).tickFormat(fmt))
+            .selectAll('text').attr('fill', C.txt2).style('font-size', '11px');
+        g.selectAll('.domain').remove();
+
+        // Zero line
+        if (yL.domain()[0] < 0 && yL.domain()[1] > 0) {
+            g.append('line').attr('x1', 0).attr('x2', cw)
+                .attr('y1', yL(0)).attr('y2', yL(0))
+                .attr('stroke', C.border).attr('stroke-dasharray', '4,3');
+        }
+
+        // Area + line: Y-o-Y
+        g.append('path').datum(yoyData)
+            .attr('d', d3.area().x(d => x(d.date)).y0(ch).y1(d => yL(d.value)).curve(d3.curveMonotoneX))
+            .attr('fill', C.navy).attr('opacity', 0.06);
+        g.append('path').datum(yoyData)
+            .attr('d', d3.line().x(d => x(d.date)).y(d => yL(d.value)).curve(d3.curveMonotoneX))
+            .attr('fill', 'none').attr('stroke', C.navy).attr('stroke-width', 2);
+
+        // LCY share: right axis
+        let yR = null;
+        if (lcyData && lcyData.length > 0) {
+            const lcyMin = d3.min(lcyData, d => d.value), lcyMax = d3.max(lcyData, d => d.value);
+            const lcyRange = lcyMax - lcyMin || 1;
+            const lcyPad = lcyRange * 0.15;
+            yR = d3.scaleLinear().domain([
+                Math.max(0, lcyMin - lcyPad),
+                Math.min(100, lcyMax + lcyPad)
+            ]).range([ch, 0]).nice();
+
+            // Right axis labels
+            const rTicks = yR.ticks(5);
+            const rFmt = v => v.toFixed(0) + '%';
+            const rSeen = new Set();
+            const rUniq = rTicks.filter(t => { const s = rFmt(t); if (rSeen.has(s)) return false; rSeen.add(s); return true; });
+            g.append('g').attr('transform', `translate(${cw},0)`)
+                .call(d3.axisRight(yR).tickValues(rUniq).tickSize(0).tickPadding(6).tickFormat(rFmt))
+                .selectAll('text').attr('fill', '#2D8C5A').style('font-size', '11px');
+            g.selectAll('.domain').remove();
+
+            // LCY line (dashed, green)
+            g.append('path').datum(lcyData)
+                .attr('d', d3.line().x(d => x(d.date)).y(d => yR(d.value)).curve(d3.curveMonotoneX))
+                .attr('fill', 'none').attr('stroke', '#2D8C5A')
+                .attr('stroke-width', 1.5).attr('stroke-dasharray', '6,3');
+        }
+
+        watermark(g, cw, ch);
+        smartXAxis(g.append('g'), x, ch, cw);
+
+        // Hover with optional dual series
+        const datasets = [{ data: yoyData, color: C.navy, yScale: yL }];
+        if (lcyData && lcyData.length > 0 && yR) {
+            datasets.push({ data: lcyData, color: '#2D8C5A', yScale: yR });
+        }
+        addHover(g, x, ch, cw, datasets,
+            (v, ds) => ds.color === C.navy ? v.toFixed(2) + '%' : v.toFixed(1) + '%',
+            'monthly');
+
+    } catch (e) {
+        console.error(e);
+        el.innerHTML = '<div class="chart-loading">Failed to load data</div>';
+    }
+}
+
+// --- Wire selectors ---
+document.querySelectorAll('[data-group="currency"]').forEach(btn => {
+    btn.addEventListener('click', function () {
+        document.querySelectorAll('[data-group="currency"]').forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+        loanCurrency = this.dataset.val;
+        updateSelectorState();
+        renderLoans();
+    });
+});
+
+document.querySelectorAll('[data-group="segment"]').forEach(btn => {
+    btn.addEventListener('click', function () {
+        if (this.classList.contains('disabled')) return;
+        document.querySelectorAll('[data-group="segment"]').forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+        loanSegment = this.dataset.val;
+        updateSelectorState();
+        renderLoans();
+    });
+});
+
+document.getElementById('lcy-toggle').addEventListener('click', function () {
+    if (this.style.pointerEvents === 'none') return;
+    loanShowLCY = !loanShowLCY;
+    this.classList.toggle('active', loanShowLCY);
+    renderLoans();
+});
 
 /* ============ CHART 5: FX ============ */
 let fxAll = null;
@@ -697,11 +1074,11 @@ function getActiveRange(buttonGroupId) {
 wireRangeButtons('liq-range-buttons', renderLiq);
 wireRangeButtons('lcr-range-buttons', renderLCR);
 wireRangeButtons('npl-range-buttons', renderNPL);
-wireRangeButtons('loans-range-buttons', renderLoans);
+wireRangeButtons('loans-range-buttons', () => renderLoans());
 wireRangeButtons('fx-range-buttons', renderFX);
 
 /* ============ INIT ============ */
-renderLiq('ALL'); renderLCR('ALL'); renderNPL('ALL'); renderLoans('ALL'); renderFX('ALL');
+renderLiq('ALL'); renderLCR('ALL'); renderNPL('ALL'); renderLoans(); renderFX('ALL');
 
 let rT;
 window.addEventListener('resize', () => {
@@ -710,7 +1087,7 @@ window.addEventListener('resize', () => {
         renderLiq(getActiveRange('liq-range-buttons'));
         renderLCR(getActiveRange('lcr-range-buttons'));
         renderNPL(getActiveRange('npl-range-buttons'));
-        renderLoans(getActiveRange('loans-range-buttons'));
+        renderLoans();
         renderFX(getActiveRange('fx-range-buttons'));
     }, 250);
 });

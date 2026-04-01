@@ -247,6 +247,54 @@ def list_series():
         conn.close()
 
 
+@app.get("/api/series/batch")
+def get_batch_series(
+    ids: str = Query(
+        description="Comma-separated list of series IDs to fetch",
+    ),
+):
+    """
+    Returns data for multiple time series in one response.
+    Used by the interactive loan chart to fetch all 27 loan series at once.
+
+    URL: GET /api/series/batch?ids=bnr_ifmcl_g,bnr_ifmcl_s,bnr_ifmcl_i
+    Response: JSON object keyed by series_id, each with date-value arrays.
+    """
+    series_ids = [s.strip() for s in ids.split(",") if s.strip()]
+
+    if not series_ids:
+        raise HTTPException(status_code=400, detail="No series IDs provided")
+    if len(series_ids) > 50:
+        raise HTTPException(status_code=400, detail="Maximum 50 series per request")
+
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        result = {}
+
+        for series_id in series_ids:
+            cursor.execute(
+                """
+                SELECT DISTINCT ON (observation_date)
+                    observation_date, value
+                FROM data_points
+                WHERE series_id = %s
+                ORDER BY observation_date ASC, recorded_at DESC
+                """,
+                (series_id,),
+            )
+            rows = cursor.fetchall()
+            result[series_id] = [
+                {"date": row["observation_date"].isoformat(), "value": float(row["value"])}
+                for row in rows
+            ]
+
+        return {"series": result}
+
+    finally:
+        conn.close()
+
+
 @app.get("/api/series/{series_id}")
 def get_series_data(
     series_id: str,
@@ -383,6 +431,7 @@ def get_series_data(
 
     finally:
         conn.close()
+
 
 
 # ============================================================================
